@@ -356,7 +356,12 @@ class TestLoader(object):
             return '.'
         path = _splitext(os.path.normpath(path))
 
-        _relpath = os.path.relpath(path, self._top_level_dir)
+        # make sure both paths have symlinks fully resolved first
+        # or relpath may give paths starting with '..' unnessarily.
+        path_real = os.path.realpath(path)
+        tld_real = os.path.realpath(self._top_level_dir)
+        _relpath = os.path.relpath(path_real, tld_real)
+
         assert not os.path.isabs(_relpath), "Path must be within the project"
         assert not _relpath.startswith('..'), "Path must be within the project"
 
