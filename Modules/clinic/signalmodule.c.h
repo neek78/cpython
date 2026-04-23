@@ -743,6 +743,76 @@ exit:
 
 #endif /* (defined(__linux__) && defined(__NR_pidfd_send_signal) && !(defined(__ANDROID__) && __ANDROID_API__ < 31)) */
 
+#if (defined(__FreeBSD__) && defined(HAVE_PDKILL))
+
+PyDoc_STRVAR(signal_pdkill__doc__,
+"pdkill($module, /, fd, signum)\n"
+"--\n"
+"\n"
+"Send a signal to a process via process descriptor *fd*.");
+
+#define SIGNAL_PDKILL_METHODDEF    \
+    {"pdkill", _PyCFunction_CAST(signal_pdkill), METH_FASTCALL|METH_KEYWORDS, signal_pdkill__doc__},
+
+static PyObject *
+signal_pdkill_impl(PyObject *module, int fd, int signum);
+
+static PyObject *
+signal_pdkill(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+{
+    PyObject *return_value = NULL;
+    #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
+
+    #define NUM_KEYWORDS 2
+    static struct {
+        PyGC_Head _this_is_not_used;
+        PyObject_VAR_HEAD
+        Py_hash_t ob_hash;
+        PyObject *ob_item[NUM_KEYWORDS];
+    } _kwtuple = {
+        .ob_base = PyVarObject_HEAD_INIT(&PyTuple_Type, NUM_KEYWORDS)
+        .ob_hash = -1,
+        .ob_item = { &_Py_ID(fd), &_Py_ID(signum), },
+    };
+    #undef NUM_KEYWORDS
+    #define KWTUPLE (&_kwtuple.ob_base.ob_base)
+
+    #else  // !Py_BUILD_CORE
+    #  define KWTUPLE NULL
+    #endif  // !Py_BUILD_CORE
+
+    static const char * const _keywords[] = {"fd", "signum", NULL};
+    static _PyArg_Parser _parser = {
+        .keywords = _keywords,
+        .fname = "pdkill",
+        .kwtuple = KWTUPLE,
+    };
+    #undef KWTUPLE
+    PyObject *argsbuf[2];
+    int fd;
+    int signum;
+
+    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser,
+            /*minpos*/ 2, /*maxpos*/ 2, /*minkw*/ 0, /*varpos*/ 0, argsbuf);
+    if (!args) {
+        goto exit;
+    }
+    fd = PyLong_AsInt(args[0]);
+    if (fd == -1 && PyErr_Occurred()) {
+        goto exit;
+    }
+    signum = PyLong_AsInt(args[1]);
+    if (signum == -1 && PyErr_Occurred()) {
+        goto exit;
+    }
+    return_value = signal_pdkill_impl(module, fd, signum);
+
+exit:
+    return return_value;
+}
+
+#endif /* (defined(__FreeBSD__) && defined(HAVE_PDKILL)) */
+
 #ifndef SIGNAL_ALARM_METHODDEF
     #define SIGNAL_ALARM_METHODDEF
 #endif /* !defined(SIGNAL_ALARM_METHODDEF) */
@@ -794,4 +864,8 @@ exit:
 #ifndef SIGNAL_PIDFD_SEND_SIGNAL_METHODDEF
     #define SIGNAL_PIDFD_SEND_SIGNAL_METHODDEF
 #endif /* !defined(SIGNAL_PIDFD_SEND_SIGNAL_METHODDEF) */
-/*[clinic end generated code: output=42e20d118435d7fa input=a9049054013a1b77]*/
+
+#ifndef SIGNAL_PDKILL_METHODDEF
+    #define SIGNAL_PDKILL_METHODDEF
+#endif /* !defined(SIGNAL_PDKILL_METHODDEF) */
+/*[clinic end generated code: output=9e91d4c3e72431f0 input=a9049054013a1b77]*/

@@ -671,6 +671,9 @@
 /* Define to 1 if you have the 'killpg' function. */
 #undef HAVE_KILLPG
 
+/* Define if you have the 'kinfo_getproc' function or macro. */
+#undef HAVE_KINFO_GETPROC
+
 /* Define if you have the 'kqueue' function. */
 #undef HAVE_KQUEUE
 
@@ -706,6 +709,9 @@
 
 /* Define to 1 if you have the <libintl.h> header file. */
 #undef HAVE_LIBINTL_H
+
+/* Define to 1 if you have the <libproc.h> header file. */
+#undef HAVE_LIBPROC_H
 
 /* Define to 1 if you have the 'sendfile' library (-lsendfile). */
 #undef HAVE_LIBSENDFILE
@@ -754,6 +760,9 @@
 
 /* Define to 1 if you have the <linux/limits.h> header file. */
 #undef HAVE_LINUX_LIMITS_H
+
+/* Define to 1 if you have the <linux/magic.h> header file. */
+#undef HAVE_LINUX_MAGIC_H
 
 /* Define to 1 if you have the <linux/memfd.h> header file. */
 #undef HAVE_LINUX_MEMFD_H
@@ -945,6 +954,30 @@
 /* Define to 1 if you have the 'pause' function. */
 #undef HAVE_PAUSE
 
+/* Define to 1 if you have the 'pdfork' function. */
+#undef HAVE_PDFORK
+
+/* Define to 1 if you have the 'pdgetpid' function. */
+#undef HAVE_PDGETPID
+
+/* Define to 1 if you have the 'pdkill' function. */
+#undef HAVE_PDKILL
+
+/* Define to 1 if you have the 'pidfd_getfd' function. */
+#undef HAVE_PIDFD_GETFD
+
+/* Define to 1 if you have the 'pidfd_getpid' function. */
+#undef HAVE_PIDFD_GETPID
+
+/* Define to 1 if you have the 'pidfd_open' function. */
+#undef HAVE_PIDFD_OPEN
+
+/* Define to 1 if you have the 'pidfd_spawn' function. */
+#undef HAVE_PIDFD_SPAWN
+
+/* Define to 1 if you have the 'pidfd_spawnp' function. */
+#undef HAVE_PIDFD_SPAWNP
+
 /* Define to 1 if you have the 'pipe' function. */
 #undef HAVE_PIPE
 
@@ -999,6 +1032,9 @@
 
 /* Define to 1 if you have the 'process_vm_readv' function. */
 #undef HAVE_PROCESS_VM_READV
+
+/* Define to 1 if you have the 'proc_pidinfo' function. */
+#undef HAVE_PROC_PIDINFO
 
 /* Define if your compiler supports function prototype */
 #undef HAVE_PROTOTYPES
@@ -1394,6 +1430,9 @@
 /* Define to 1 if you have the 'sysconf' function. */
 #undef HAVE_SYSCONF
 
+/* Define to 1 if you have the 'sysctl' function. */
+#undef HAVE_SYSCTL
+
 /* Define to 1 if you have the <sysexits.h> header file. */
 #undef HAVE_SYSEXITS_H
 
@@ -1471,6 +1510,12 @@
 /* Define to 1 if you have the <sys/poll.h> header file. */
 #undef HAVE_SYS_POLL_H
 
+/* Define to 1 if you have the <sys/procdesc.h> header file. */
+#undef HAVE_SYS_PROCDESC_H
+
+/* Define to 1 if you have the <sys/proc.h> header file. */
+#undef HAVE_SYS_PROC_H
+
 /* Define to 1 if you have the <sys/random.h> header file. */
 #undef HAVE_SYS_RANDOM_H
 
@@ -1497,6 +1542,9 @@
 
 /* Define to 1 if you have the <sys/syscall.h> header file. */
 #undef HAVE_SYS_SYSCALL_H
+
+/* Define to 1 if you have the <sys/sysctl.h> header file. */
+#undef HAVE_SYS_SYSCTL_H
 
 /* Define to 1 if you have the <sys/sysmacros.h> header file. */
 #undef HAVE_SYS_SYSMACROS_H
@@ -1525,8 +1573,14 @@
 /* Define to 1 if you have the <sys/un.h> header file. */
 #undef HAVE_SYS_UN_H
 
+/* Define to 1 if you have the <sys/user.h> header file. */
+#undef HAVE_SYS_USER_H
+
 /* Define to 1 if you have the <sys/utsname.h> header file. */
 #undef HAVE_SYS_UTSNAME_H
+
+/* Define to 1 if you have the <sys/vfs.h> header file. */
+#undef HAVE_SYS_VFS_H
 
 /* Define to 1 if you have the <sys/wait.h> header file. */
 #undef HAVE_SYS_WAIT_H

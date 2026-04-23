@@ -1971,6 +1971,7 @@ extern "C" {
     INIT_ID(outpath), \
     INIT_ID(overlapped), \
     INIT_ID(owner), \
+    INIT_ID(p_stat), \
     INIT_ID(pad), \
     INIT_ID(padded), \
     INIT_ID(pages), \
@@ -1979,12 +1980,14 @@ extern "C" {
     INIT_ID(password), \
     INIT_ID(path), \
     INIT_ID(pattern), \
+    INIT_ID(pd), \
     INIT_ID(peek), \
     INIT_ID(persistent_id), \
     INIT_ID(persistent_load), \
     INIT_ID(person), \
     INIT_ID(pi_factory), \
     INIT_ID(pid), \
+    INIT_ID(pidfd), \
     INIT_ID(pointer_bits), \
     INIT_ID(policy), \
     INIT_ID(pos), \
@@ -2027,6 +2030,7 @@ extern "C" {
     INIT_ID(repl), \
     INIT_ID(replace), \
     INIT_ID(reqrefs), \
+    INIT_ID(request), \
     INIT_ID(require_ready), \
     INIT_ID(reserved), \
     INIT_ID(reset), \
@@ -2103,6 +2107,7 @@ extern "C" {
     INIT_ID(take_bytes), \
     INIT_ID(target), \
     INIT_ID(target_is_directory), \
+    INIT_ID(targetfd), \
     INIT_ID(task), \
     INIT_ID(tb_frame), \
     INIT_ID(tb_lasti), \

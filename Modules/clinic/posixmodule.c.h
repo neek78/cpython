@@ -4212,6 +4212,312 @@ exit:
 
 #endif /* defined(HAVE_POSIX_SPAWNP) */
 
+#if defined(HAVE_PIDFD_SPAWN)
+
+PyDoc_STRVAR(os_pidfd_spawn__doc__,
+"pidfd_spawn($module, path, argv, env, /, *, file_actions=(),\n"
+"            setpgroup=None, resetids=False, setsid=False,\n"
+"            setsigmask=(), setsigdef=(), scheduler=None)\n"
+"--\n"
+"\n"
+"Execute the program specified by path in a new process, return a pidfd.\n"
+"\n"
+"  path\n"
+"    Path of executable file.\n"
+"  argv\n"
+"    Tuple or list of strings.\n"
+"  env\n"
+"    Dictionary of strings mapping to strings.\n"
+"  file_actions\n"
+"    A sequence of file action tuples.\n"
+"  setpgroup\n"
+"    The pgroup to use with the POSIX_SPAWN_SETPGROUP flag.\n"
+"  resetids\n"
+"    If the value is `True` the POSIX_SPAWN_RESETIDS will be activated.\n"
+"  setsid\n"
+"    If the value is `True` the POSIX_SPAWN_SETSID or POSIX_SPAWN_SETSID_NP will be activated.\n"
+"  setsigmask\n"
+"    The sigmask to use with the POSIX_SPAWN_SETSIGMASK flag.\n"
+"  setsigdef\n"
+"    The sigmask to use with the POSIX_SPAWN_SETSIGDEF flag.\n"
+"  scheduler\n"
+"    A tuple with the scheduler policy (optional) and parameters.");
+
+#define OS_PIDFD_SPAWN_METHODDEF    \
+    {"pidfd_spawn", _PyCFunction_CAST(os_pidfd_spawn), METH_FASTCALL|METH_KEYWORDS, os_pidfd_spawn__doc__},
+
+static PyObject *
+os_pidfd_spawn_impl(PyObject *module, path_t *path, PyObject *argv,
+                    PyObject *env, PyObject *file_actions,
+                    PyObject *setpgroup, int resetids, int setsid,
+                    PyObject *setsigmask, PyObject *setsigdef,
+                    PyObject *scheduler);
+
+static PyObject *
+os_pidfd_spawn(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+{
+    PyObject *return_value = NULL;
+    #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
+
+    #define NUM_KEYWORDS 7
+    static struct {
+        PyGC_Head _this_is_not_used;
+        PyObject_VAR_HEAD
+        Py_hash_t ob_hash;
+        PyObject *ob_item[NUM_KEYWORDS];
+    } _kwtuple = {
+        .ob_base = PyVarObject_HEAD_INIT(&PyTuple_Type, NUM_KEYWORDS)
+        .ob_hash = -1,
+        .ob_item = { &_Py_ID(file_actions), &_Py_ID(setpgroup), &_Py_ID(resetids), &_Py_ID(setsid), &_Py_ID(setsigmask), &_Py_ID(setsigdef), &_Py_ID(scheduler), },
+    };
+    #undef NUM_KEYWORDS
+    #define KWTUPLE (&_kwtuple.ob_base.ob_base)
+
+    #else  // !Py_BUILD_CORE
+    #  define KWTUPLE NULL
+    #endif  // !Py_BUILD_CORE
+
+    static const char * const _keywords[] = {"", "", "", "file_actions", "setpgroup", "resetids", "setsid", "setsigmask", "setsigdef", "scheduler", NULL};
+    static _PyArg_Parser _parser = {
+        .keywords = _keywords,
+        .fname = "pidfd_spawn",
+        .kwtuple = KWTUPLE,
+    };
+    #undef KWTUPLE
+    PyObject *argsbuf[10];
+    Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 3;
+    path_t path = PATH_T_INITIALIZE_P("pidfd_spawn", "path", 0, 0, 0, 0);
+    PyObject *argv;
+    PyObject *env;
+    PyObject *file_actions = NULL;
+    PyObject *setpgroup = NULL;
+    int resetids = 0;
+    int setsid = 0;
+    PyObject *setsigmask = NULL;
+    PyObject *setsigdef = NULL;
+    PyObject *scheduler = NULL;
+
+    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser,
+            /*minpos*/ 3, /*maxpos*/ 3, /*minkw*/ 0, /*varpos*/ 0, argsbuf);
+    if (!args) {
+        goto exit;
+    }
+    if (!path_converter(args[0], &path)) {
+        goto exit;
+    }
+    argv = args[1];
+    env = args[2];
+    if (!noptargs) {
+        goto skip_optional_kwonly;
+    }
+    if (args[3]) {
+        file_actions = args[3];
+        if (!--noptargs) {
+            goto skip_optional_kwonly;
+        }
+    }
+    if (args[4]) {
+        setpgroup = args[4];
+        if (!--noptargs) {
+            goto skip_optional_kwonly;
+        }
+    }
+    if (args[5]) {
+        resetids = PyObject_IsTrue(args[5]);
+        if (resetids < 0) {
+            goto exit;
+        }
+        if (!--noptargs) {
+            goto skip_optional_kwonly;
+        }
+    }
+    if (args[6]) {
+        setsid = PyObject_IsTrue(args[6]);
+        if (setsid < 0) {
+            goto exit;
+        }
+        if (!--noptargs) {
+            goto skip_optional_kwonly;
+        }
+    }
+    if (args[7]) {
+        setsigmask = args[7];
+        if (!--noptargs) {
+            goto skip_optional_kwonly;
+        }
+    }
+    if (args[8]) {
+        setsigdef = args[8];
+        if (!--noptargs) {
+            goto skip_optional_kwonly;
+        }
+    }
+    scheduler = args[9];
+skip_optional_kwonly:
+    return_value = os_pidfd_spawn_impl(module, &path, argv, env, file_actions, setpgroup, resetids, setsid, setsigmask, setsigdef, scheduler);
+
+exit:
+    /* Cleanup for path */
+    path_cleanup(&path);
+
+    return return_value;
+}
+
+#endif /* defined(HAVE_PIDFD_SPAWN) */
+
+#if defined(HAVE_PIDFD_SPAWNP)
+
+PyDoc_STRVAR(os_pidfd_spawnp__doc__,
+"pidfd_spawnp($module, path, argv, env, /, *, file_actions=(),\n"
+"             setpgroup=None, resetids=False, setsid=False,\n"
+"             setsigmask=(), setsigdef=(), scheduler=None)\n"
+"--\n"
+"\n"
+"Execute the program specified by path in a new process, return a pidfd.\n"
+"\n"
+"  path\n"
+"    Path of executable file.\n"
+"  argv\n"
+"    Tuple or list of strings.\n"
+"  env\n"
+"    Dictionary of strings mapping to strings.\n"
+"  file_actions\n"
+"    A sequence of file action tuples.\n"
+"  setpgroup\n"
+"    The pgroup to use with the POSIX_SPAWN_SETPGROUP flag.\n"
+"  resetids\n"
+"    If the value is `True` the POSIX_SPAWN_RESETIDS will be activated.\n"
+"  setsid\n"
+"    If the value is `True` the POSIX_SPAWN_SETSID or POSIX_SPAWN_SETSID_NP will be activated.\n"
+"  setsigmask\n"
+"    The sigmask to use with the POSIX_SPAWN_SETSIGMASK flag.\n"
+"  setsigdef\n"
+"    The sigmask to use with the POSIX_SPAWN_SETSIGDEF flag.\n"
+"  scheduler\n"
+"    A tuple with the scheduler policy (optional) and parameters.");
+
+#define OS_PIDFD_SPAWNP_METHODDEF    \
+    {"pidfd_spawnp", _PyCFunction_CAST(os_pidfd_spawnp), METH_FASTCALL|METH_KEYWORDS, os_pidfd_spawnp__doc__},
+
+static PyObject *
+os_pidfd_spawnp_impl(PyObject *module, path_t *path, PyObject *argv,
+                     PyObject *env, PyObject *file_actions,
+                     PyObject *setpgroup, int resetids, int setsid,
+                     PyObject *setsigmask, PyObject *setsigdef,
+                     PyObject *scheduler);
+
+static PyObject *
+os_pidfd_spawnp(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+{
+    PyObject *return_value = NULL;
+    #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
+
+    #define NUM_KEYWORDS 7
+    static struct {
+        PyGC_Head _this_is_not_used;
+        PyObject_VAR_HEAD
+        Py_hash_t ob_hash;
+        PyObject *ob_item[NUM_KEYWORDS];
+    } _kwtuple = {
+        .ob_base = PyVarObject_HEAD_INIT(&PyTuple_Type, NUM_KEYWORDS)
+        .ob_hash = -1,
+        .ob_item = { &_Py_ID(file_actions), &_Py_ID(setpgroup), &_Py_ID(resetids), &_Py_ID(setsid), &_Py_ID(setsigmask), &_Py_ID(setsigdef), &_Py_ID(scheduler), },
+    };
+    #undef NUM_KEYWORDS
+    #define KWTUPLE (&_kwtuple.ob_base.ob_base)
+
+    #else  // !Py_BUILD_CORE
+    #  define KWTUPLE NULL
+    #endif  // !Py_BUILD_CORE
+
+    static const char * const _keywords[] = {"", "", "", "file_actions", "setpgroup", "resetids", "setsid", "setsigmask", "setsigdef", "scheduler", NULL};
+    static _PyArg_Parser _parser = {
+        .keywords = _keywords,
+        .fname = "pidfd_spawnp",
+        .kwtuple = KWTUPLE,
+    };
+    #undef KWTUPLE
+    PyObject *argsbuf[10];
+    Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 3;
+    path_t path = PATH_T_INITIALIZE_P("pidfd_spawnp", "path", 0, 0, 0, 0);
+    PyObject *argv;
+    PyObject *env;
+    PyObject *file_actions = NULL;
+    PyObject *setpgroup = NULL;
+    int resetids = 0;
+    int setsid = 0;
+    PyObject *setsigmask = NULL;
+    PyObject *setsigdef = NULL;
+    PyObject *scheduler = NULL;
+
+    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser,
+            /*minpos*/ 3, /*maxpos*/ 3, /*minkw*/ 0, /*varpos*/ 0, argsbuf);
+    if (!args) {
+        goto exit;
+    }
+    if (!path_converter(args[0], &path)) {
+        goto exit;
+    }
+    argv = args[1];
+    env = args[2];
+    if (!noptargs) {
+        goto skip_optional_kwonly;
+    }
+    if (args[3]) {
+        file_actions = args[3];
+        if (!--noptargs) {
+            goto skip_optional_kwonly;
+        }
+    }
+    if (args[4]) {
+        setpgroup = args[4];
+        if (!--noptargs) {
+            goto skip_optional_kwonly;
+        }
+    }
+    if (args[5]) {
+        resetids = PyObject_IsTrue(args[5]);
+        if (resetids < 0) {
+            goto exit;
+        }
+        if (!--noptargs) {
+            goto skip_optional_kwonly;
+        }
+    }
+    if (args[6]) {
+        setsid = PyObject_IsTrue(args[6]);
+        if (setsid < 0) {
+            goto exit;
+        }
+        if (!--noptargs) {
+            goto skip_optional_kwonly;
+        }
+    }
+    if (args[7]) {
+        setsigmask = args[7];
+        if (!--noptargs) {
+            goto skip_optional_kwonly;
+        }
+    }
+    if (args[8]) {
+        setsigdef = args[8];
+        if (!--noptargs) {
+            goto skip_optional_kwonly;
+        }
+    }
+    scheduler = args[9];
+skip_optional_kwonly:
+    return_value = os_pidfd_spawnp_impl(module, &path, argv, env, file_actions, setpgroup, resetids, setsid, setsigmask, setsigdef, scheduler);
+
+exit:
+    /* Cleanup for path */
+    path_cleanup(&path);
+
+    return return_value;
+}
+
+#endif /* defined(HAVE_PIDFD_SPAWNP) */
+
 #if (defined(HAVE_SPAWNV) || defined(HAVE_WSPAWNV) || defined(HAVE_RTPSPAWN))
 
 PyDoc_STRVAR(os_spawnv__doc__,
@@ -4457,6 +4763,85 @@ static PyObject *
 os_fork(PyObject *module, PyObject *Py_UNUSED(ignored))
 {
     return os_fork_impl(module);
+}
+
+#endif /* defined(HAVE_FORK) */
+
+#if defined(HAVE_FORK)
+
+PyDoc_STRVAR(os_fork_flags__doc__,
+"fork_flags($module, /, flags=0)\n"
+"--\n"
+"\n"
+"Fork a child process, and optionally generate a process file descriptor.\n"
+"\n"
+"  flags\n"
+"    A bitfield of FORK_FLAGS_* values\n"
+"\n"
+"Returns:\n"
+"    Always returns a tuple of two integers.\n"
+"    parent: PID of child process, and process fd if requested (or -1 if\n"
+"    that failed).\n"
+"    child : (0, -1)");
+
+#define OS_FORK_FLAGS_METHODDEF    \
+    {"fork_flags", _PyCFunction_CAST(os_fork_flags), METH_FASTCALL|METH_KEYWORDS, os_fork_flags__doc__},
+
+static PyObject *
+os_fork_flags_impl(PyObject *module, int flags);
+
+static PyObject *
+os_fork_flags(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+{
+    PyObject *return_value = NULL;
+    #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
+
+    #define NUM_KEYWORDS 1
+    static struct {
+        PyGC_Head _this_is_not_used;
+        PyObject_VAR_HEAD
+        Py_hash_t ob_hash;
+        PyObject *ob_item[NUM_KEYWORDS];
+    } _kwtuple = {
+        .ob_base = PyVarObject_HEAD_INIT(&PyTuple_Type, NUM_KEYWORDS)
+        .ob_hash = -1,
+        .ob_item = { &_Py_ID(flags), },
+    };
+    #undef NUM_KEYWORDS
+    #define KWTUPLE (&_kwtuple.ob_base.ob_base)
+
+    #else  // !Py_BUILD_CORE
+    #  define KWTUPLE NULL
+    #endif  // !Py_BUILD_CORE
+
+    static const char * const _keywords[] = {"flags", NULL};
+    static _PyArg_Parser _parser = {
+        .keywords = _keywords,
+        .fname = "fork_flags",
+        .kwtuple = KWTUPLE,
+    };
+    #undef KWTUPLE
+    PyObject *argsbuf[1];
+    Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 0;
+    int flags = 0;
+
+    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser,
+            /*minpos*/ 0, /*maxpos*/ 1, /*minkw*/ 0, /*varpos*/ 0, argsbuf);
+    if (!args) {
+        goto exit;
+    }
+    if (!noptargs) {
+        goto skip_optional_pos;
+    }
+    flags = PyLong_AsInt(args[0]);
+    if (flags == -1 && PyErr_Occurred()) {
+        goto exit;
+    }
+skip_optional_pos:
+    return_value = os_fork_flags_impl(module, flags);
+
+exit:
+    return return_value;
 }
 
 #endif /* defined(HAVE_FORK) */
@@ -6392,6 +6777,71 @@ exit:
 }
 
 #endif /* (defined(__linux__) && defined(__NR_pidfd_open) && !(defined(__ANDROID__) && __ANDROID_API__ < 31)) */
+
+#if (defined(__FreeBSD__) && defined(HAVE_PDGETPID))
+
+PyDoc_STRVAR(os_pdgetpid__doc__,
+"pdgetpid($module, /, fd)\n"
+"--\n"
+"\n"
+"Get the pid for the given process descriptor.");
+
+#define OS_PDGETPID_METHODDEF    \
+    {"pdgetpid", _PyCFunction_CAST(os_pdgetpid), METH_FASTCALL|METH_KEYWORDS, os_pdgetpid__doc__},
+
+static PyObject *
+os_pdgetpid_impl(PyObject *module, int fd);
+
+static PyObject *
+os_pdgetpid(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+{
+    PyObject *return_value = NULL;
+    #if defined(Py_BUILD_CORE) && !defined(Py_BUILD_CORE_MODULE)
+
+    #define NUM_KEYWORDS 1
+    static struct {
+        PyGC_Head _this_is_not_used;
+        PyObject_VAR_HEAD
+        Py_hash_t ob_hash;
+        PyObject *ob_item[NUM_KEYWORDS];
+    } _kwtuple = {
+        .ob_base = PyVarObject_HEAD_INIT(&PyTuple_Type, NUM_KEYWORDS)
+        .ob_hash = -1,
+        .ob_item = { &_Py_ID(fd), },
+    };
+    #undef NUM_KEYWORDS
+    #define KWTUPLE (&_kwtuple.ob_base.ob_base)
+
+    #else  // !Py_BUILD_CORE
+    #  define KWTUPLE NULL
+    #endif  // !Py_BUILD_CORE
+
+    static const char * const _keywords[] = {"fd", NULL};
+    static _PyArg_Parser _parser = {
+        .keywords = _keywords,
+        .fname = "pdgetpid",
+        .kwtuple = KWTUPLE,
+    };
+    #undef KWTUPLE
+    PyObject *argsbuf[1];
+    int fd;
+
+    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser,
+            /*minpos*/ 1, /*maxpos*/ 1, /*minkw*/ 0, /*varpos*/ 0, argsbuf);
+    if (!args) {
+        goto exit;
+    }
+    fd = PyLong_AsInt(args[0]);
+    if (fd == -1 && PyErr_Occurred()) {
+        goto exit;
+    }
+    return_value = os_pdgetpid_impl(module, fd);
+
+exit:
+    return return_value;
+}
+
+#endif /* (defined(__FreeBSD__) && defined(HAVE_PDGETPID)) */
 
 #if defined(HAVE_SETNS)
 
@@ -13092,6 +13542,14 @@ exit:
     #define OS_POSIX_SPAWNP_METHODDEF
 #endif /* !defined(OS_POSIX_SPAWNP_METHODDEF) */
 
+#ifndef OS_PIDFD_SPAWN_METHODDEF
+    #define OS_PIDFD_SPAWN_METHODDEF
+#endif /* !defined(OS_PIDFD_SPAWN_METHODDEF) */
+
+#ifndef OS_PIDFD_SPAWNP_METHODDEF
+    #define OS_PIDFD_SPAWNP_METHODDEF
+#endif /* !defined(OS_PIDFD_SPAWNP_METHODDEF) */
+
 #ifndef OS_SPAWNV_METHODDEF
     #define OS_SPAWNV_METHODDEF
 #endif /* !defined(OS_SPAWNV_METHODDEF) */
@@ -13111,6 +13569,10 @@ exit:
 #ifndef OS_FORK_METHODDEF
     #define OS_FORK_METHODDEF
 #endif /* !defined(OS_FORK_METHODDEF) */
+
+#ifndef OS_FORK_FLAGS_METHODDEF
+    #define OS_FORK_FLAGS_METHODDEF
+#endif /* !defined(OS_FORK_FLAGS_METHODDEF) */
 
 #ifndef OS_SCHED_GET_PRIORITY_MAX_METHODDEF
     #define OS_SCHED_GET_PRIORITY_MAX_METHODDEF
@@ -13295,6 +13757,10 @@ exit:
 #ifndef OS_PIDFD_OPEN_METHODDEF
     #define OS_PIDFD_OPEN_METHODDEF
 #endif /* !defined(OS_PIDFD_OPEN_METHODDEF) */
+
+#ifndef OS_PDGETPID_METHODDEF
+    #define OS_PDGETPID_METHODDEF
+#endif /* !defined(OS_PDGETPID_METHODDEF) */
 
 #ifndef OS_SETNS_METHODDEF
     #define OS_SETNS_METHODDEF
@@ -13611,4 +14077,4 @@ exit:
 #ifndef OS__EMSCRIPTEN_LOG_METHODDEF
     #define OS__EMSCRIPTEN_LOG_METHODDEF
 #endif /* !defined(OS__EMSCRIPTEN_LOG_METHODDEF) */
-/*[clinic end generated code: output=e709b8b783fbc261 input=a9049054013a1b77]*/
+/*[clinic end generated code: output=6e281b8d962e0dea input=a9049054013a1b77]*/

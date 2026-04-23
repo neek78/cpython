@@ -756,6 +756,10 @@ MODULE_RESOURCE_FALSE
 MODULE_RESOURCE_TRUE
 MODULE_PWD_FALSE
 MODULE_PWD_TRUE
+MODULE__PROCINFO_FALSE
+MODULE__PROCINFO_TRUE
+MODULE_PIDFD_FALSE
+MODULE_PIDFD_TRUE
 MODULE_GRP_FALSE
 MODULE_GRP_TRUE
 MODULE__SOCKET_FALSE
@@ -11444,6 +11448,12 @@ then :
   printf "%s\n" "#define HAVE_LIBINTL_H 1" >>confdefs.h
 
 fi
+ac_fn_c_check_header_compile "$LINENO" "libproc.h" "ac_cv_header_libproc_h" "$ac_includes_default"
+if test "x$ac_cv_header_libproc_h" = xyes
+then :
+  printf "%s\n" "#define HAVE_LIBPROC_H 1" >>confdefs.h
+
+fi
 ac_fn_c_check_header_compile "$LINENO" "libutil.h" "ac_cv_header_libutil_h" "$ac_includes_default"
 if test "x$ac_cv_header_libutil_h" = xyes
 then :
@@ -11472,6 +11482,12 @@ ac_fn_c_check_header_compile "$LINENO" "linux/limits.h" "ac_cv_header_linux_limi
 if test "x$ac_cv_header_linux_limits_h" = xyes
 then :
   printf "%s\n" "#define HAVE_LINUX_LIMITS_H 1" >>confdefs.h
+
+fi
+ac_fn_c_check_header_compile "$LINENO" "linux/magic.h" "ac_cv_header_linux_magic_h" "$ac_includes_default"
+if test "x$ac_cv_header_linux_magic_h" = xyes
+then :
+  printf "%s\n" "#define HAVE_LINUX_MAGIC_H 1" >>confdefs.h
 
 fi
 ac_fn_c_check_header_compile "$LINENO" "linux/memfd.h" "ac_cv_header_linux_memfd_h" "$ac_includes_default"
@@ -11696,6 +11712,12 @@ then :
   printf "%s\n" "#define HAVE_SYS_PARAM_H 1" >>confdefs.h
 
 fi
+ac_fn_c_check_header_compile "$LINENO" "sys/procdesc.h" "ac_cv_header_sys_procdesc_h" "$ac_includes_default"
+if test "x$ac_cv_header_sys_procdesc_h" = xyes
+then :
+  printf "%s\n" "#define HAVE_SYS_PROCDESC_H 1" >>confdefs.h
+
+fi
 ac_fn_c_check_header_compile "$LINENO" "sys/pidfd.h" "ac_cv_header_sys_pidfd_h" "$ac_includes_default"
 if test "x$ac_cv_header_sys_pidfd_h" = xyes
 then :
@@ -11706,6 +11728,12 @@ ac_fn_c_check_header_compile "$LINENO" "sys/poll.h" "ac_cv_header_sys_poll_h" "$
 if test "x$ac_cv_header_sys_poll_h" = xyes
 then :
   printf "%s\n" "#define HAVE_SYS_POLL_H 1" >>confdefs.h
+
+fi
+ac_fn_c_check_header_compile "$LINENO" "sys/proc.h" "ac_cv_header_sys_proc_h" "$ac_includes_default"
+if test "x$ac_cv_header_sys_proc_h" = xyes
+then :
+  printf "%s\n" "#define HAVE_SYS_PROC_H 1" >>confdefs.h
 
 fi
 ac_fn_c_check_header_compile "$LINENO" "sys/random.h" "ac_cv_header_sys_random_h" "$ac_includes_default"
@@ -11756,6 +11784,12 @@ then :
   printf "%s\n" "#define HAVE_SYS_STATVFS_H 1" >>confdefs.h
 
 fi
+ac_fn_c_check_header_compile "$LINENO" "sys/statvfs.h" "ac_cv_header_sys_statvfs_h" "$ac_includes_default"
+if test "x$ac_cv_header_sys_statvfs_h" = xyes
+then :
+  printf "%s\n" "#define HAVE_SYS_STATVFS_H 1" >>confdefs.h
+
+fi
 ac_fn_c_check_header_compile "$LINENO" "sys/sys_domain.h" "ac_cv_header_sys_sys_domain_h" "$ac_includes_default"
 if test "x$ac_cv_header_sys_sys_domain_h" = xyes
 then :
@@ -11766,6 +11800,12 @@ ac_fn_c_check_header_compile "$LINENO" "sys/syscall.h" "ac_cv_header_sys_syscall
 if test "x$ac_cv_header_sys_syscall_h" = xyes
 then :
   printf "%s\n" "#define HAVE_SYS_SYSCALL_H 1" >>confdefs.h
+
+fi
+ac_fn_c_check_header_compile "$LINENO" "sys/sysctl.h" "ac_cv_header_sys_sysctl_h" "$ac_includes_default"
+if test "x$ac_cv_header_sys_sysctl_h" = xyes
+then :
+  printf "%s\n" "#define HAVE_SYS_SYSCTL_H 1" >>confdefs.h
 
 fi
 ac_fn_c_check_header_compile "$LINENO" "sys/sysmacros.h" "ac_cv_header_sys_sysmacros_h" "$ac_includes_default"
@@ -11816,10 +11856,22 @@ then :
   printf "%s\n" "#define HAVE_SYS_UN_H 1" >>confdefs.h
 
 fi
+ac_fn_c_check_header_compile "$LINENO" "sys/user.h" "ac_cv_header_sys_user_h" "$ac_includes_default"
+if test "x$ac_cv_header_sys_user_h" = xyes
+then :
+  printf "%s\n" "#define HAVE_SYS_USER_H 1" >>confdefs.h
+
+fi
 ac_fn_c_check_header_compile "$LINENO" "sys/utsname.h" "ac_cv_header_sys_utsname_h" "$ac_includes_default"
 if test "x$ac_cv_header_sys_utsname_h" = xyes
 then :
   printf "%s\n" "#define HAVE_SYS_UTSNAME_H 1" >>confdefs.h
+
+fi
+ac_fn_c_check_header_compile "$LINENO" "sys/vfs.h" "ac_cv_header_sys_vfs_h" "$ac_includes_default"
+if test "x$ac_cv_header_sys_vfs_h" = xyes
+then :
+  printf "%s\n" "#define HAVE_SYS_VFS_H 1" >>confdefs.h
 
 fi
 ac_fn_c_check_header_compile "$LINENO" "sys/wait.h" "ac_cv_header_sys_wait_h" "$ac_includes_default"
@@ -20008,6 +20060,12 @@ then :
   printf "%s\n" "#define HAVE_KILLPG 1" >>confdefs.h
 
 fi
+ac_fn_c_check_func "$LINENO" "kinfo_getproc" "ac_cv_func_kinfo_getproc"
+if test "x$ac_cv_func_kinfo_getproc" = xyes
+then :
+  printf "%s\n" "#define HAVE_KINFO_GETPROC 1" >>confdefs.h
+
+fi
 ac_fn_c_check_func "$LINENO" "lchown" "ac_cv_func_lchown"
 if test "x$ac_cv_func_lchown" = xyes
 then :
@@ -20134,6 +20192,54 @@ then :
   printf "%s\n" "#define HAVE_PAUSE 1" >>confdefs.h
 
 fi
+ac_fn_c_check_func "$LINENO" "pdfork" "ac_cv_func_pdfork"
+if test "x$ac_cv_func_pdfork" = xyes
+then :
+  printf "%s\n" "#define HAVE_PDFORK 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "pdkill" "ac_cv_func_pdkill"
+if test "x$ac_cv_func_pdkill" = xyes
+then :
+  printf "%s\n" "#define HAVE_PDKILL 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "pdgetpid" "ac_cv_func_pdgetpid"
+if test "x$ac_cv_func_pdgetpid" = xyes
+then :
+  printf "%s\n" "#define HAVE_PDGETPID 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "pidfd_getpid" "ac_cv_func_pidfd_getpid"
+if test "x$ac_cv_func_pidfd_getpid" = xyes
+then :
+  printf "%s\n" "#define HAVE_PIDFD_GETPID 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "pidfd_getfd" "ac_cv_func_pidfd_getfd"
+if test "x$ac_cv_func_pidfd_getfd" = xyes
+then :
+  printf "%s\n" "#define HAVE_PIDFD_GETFD 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "pidfd_open" "ac_cv_func_pidfd_open"
+if test "x$ac_cv_func_pidfd_open" = xyes
+then :
+  printf "%s\n" "#define HAVE_PIDFD_OPEN 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "pidfd_spawn" "ac_cv_func_pidfd_spawn"
+if test "x$ac_cv_func_pidfd_spawn" = xyes
+then :
+  printf "%s\n" "#define HAVE_PIDFD_SPAWN 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "pidfd_spawnp" "ac_cv_func_pidfd_spawnp"
+if test "x$ac_cv_func_pidfd_spawnp" = xyes
+then :
+  printf "%s\n" "#define HAVE_PIDFD_SPAWNP 1" >>confdefs.h
+
+fi
 ac_fn_c_check_func "$LINENO" "pipe" "ac_cv_func_pipe"
 if test "x$ac_cv_func_pipe" = xyes
 then :
@@ -20222,6 +20328,12 @@ ac_fn_c_check_func "$LINENO" "process_vm_readv" "ac_cv_func_process_vm_readv"
 if test "x$ac_cv_func_process_vm_readv" = xyes
 then :
   printf "%s\n" "#define HAVE_PROCESS_VM_READV 1" >>confdefs.h
+
+fi
+ac_fn_c_check_func "$LINENO" "proc_pidinfo" "ac_cv_func_proc_pidinfo"
+if test "x$ac_cv_func_proc_pidinfo" = xyes
+then :
+  printf "%s\n" "#define HAVE_PROC_PIDINFO 1" >>confdefs.h
 
 fi
 ac_fn_c_check_func "$LINENO" "pthread_cond_timedwait_relative_np" "ac_cv_func_pthread_cond_timedwait_relative_np"
@@ -20614,6 +20726,12 @@ then :
   printf "%s\n" "#define HAVE_SYSCONF 1" >>confdefs.h
 
 fi
+ac_fn_c_check_func "$LINENO" "sysctl" "ac_cv_func_sysctl"
+if test "x$ac_cv_func_sysctl" = xyes
+then :
+  printf "%s\n" "#define HAVE_SYSCTL 1" >>confdefs.h
+
+fi
 ac_fn_c_check_func "$LINENO" "tcgetpgrp" "ac_cv_func_tcgetpgrp"
 if test "x$ac_cv_func_tcgetpgrp" = xyes
 then :
@@ -20840,6 +20958,17 @@ if test "x$ac_cv_have_decl_dirfd" = xyes
 then :
 
 printf "%s\n" "#define HAVE_DIRFD 1" >>confdefs.h
+
+fi
+
+ac_fn_check_decl "$LINENO" "kinfo_getproc" "ac_cv_have_decl_kinfo_getproc" "#include <sys/types.h>
+               #include <sys/user.h>
+               #include <libutil.h>
+" "$ac_c_undeclared_builtin_options" "CFLAGS"
+if test "x$ac_cv_have_decl_kinfo_getproc" = xyes
+then :
+
+printf "%s\n" "#define HAVE_KINFO_GETPROC 1" >>confdefs.h
 
 fi
 
@@ -31532,16 +31661,23 @@ case $ac_sys_system in #(
 
 
     py_cv_module__scproxy=n/a
+    py_cv_module_pidfd=n/a
+    py_cv_module__proc_info=n/a
  ;; #(
   VxWorks*) :
 
 
     py_cv_module__scproxy=n/a
+    py_cv_module_pidfd=n/a
+    py_cv_module__proc_info=n/a
     py_cv_module_termios=n/a
     py_cv_module_grp=n/a
  ;; #(
     Darwin) :
-     ;; #(
+
+
+    py_cv_module_pidfd=n/a
+ ;; #(
   iOS) :
 
 
@@ -31552,10 +31688,12 @@ case $ac_sys_system in #(
     py_cv_module__multiprocessing=n/a
     py_cv_module__posixshmem=n/a
     py_cv_module__posixsubprocess=n/a
+    py_cv_module__procinfo=n/a
     py_cv_module__scproxy=n/a
     py_cv_module__tkinter=n/a
     py_cv_module_grp=n/a
     py_cv_module_nis=n/a
+    py_cv_module_pidfd=n/a
     py_cv_module_readline=n/a
     py_cv_module_pwd=n/a
     py_cv_module_spwd=n/a
@@ -31567,16 +31705,27 @@ case $ac_sys_system in #(
 
 
     py_cv_module__scproxy=n/a
+    py_cv_module_pidfd=n/a
+    py_cv_module__profinfo=n/a
  ;; #(
   QNX*) :
 
 
     py_cv_module__scproxy=n/a
+    py_cv_module_pidfd=n/a
+    py_cv_module__profinfo=n/a
  ;; #(
   FreeBSD*) :
 
 
     py_cv_module__scproxy=n/a
+    py_cv_module_pidfd=n/a
+    py_cv_module__profinfo=n/a
+ ;; #(
+  Linux) :
+
+
+    py_cv_module__procinfo=n/a
  ;; #(
   Emscripten) :
 
@@ -31589,12 +31738,14 @@ case $ac_sys_system in #(
     py_cv_module__multiprocessing=n/a
     py_cv_module__posixshmem=n/a
     py_cv_module__posixsubprocess=n/a
+    py_cv_module__procinfo=n/a
     py_cv_module__scproxy=n/a
     py_cv_module__tkinter=n/a
     py_cv_module__interpreters=n/a
     py_cv_module__interpchannels=n/a
     py_cv_module__interpqueues=n/a
     py_cv_module_grp=n/a
+    py_cv_module_pidfd=n/a
     py_cv_module_pwd=n/a
     py_cv_module_resource=n/a
     py_cv_module_syslog=n/a
@@ -31617,12 +31768,14 @@ case $ac_sys_system in #(
     py_cv_module__multiprocessing=n/a
     py_cv_module__posixshmem=n/a
     py_cv_module__posixsubprocess=n/a
+    py_cv_module__procinfo=n/a
     py_cv_module__scproxy=n/a
     py_cv_module__tkinter=n/a
     py_cv_module__interpreters=n/a
     py_cv_module__interpchannels=n/a
     py_cv_module__interpqueues=n/a
     py_cv_module_grp=n/a
+    py_cv_module_pidfd=n/a
     py_cv_module_pwd=n/a
     py_cv_module_resource=n/a
     py_cv_module_syslog=n/a
@@ -31631,11 +31784,13 @@ case $ac_sys_system in #(
 
 
     py_cv_module__ctypes_test=n/a
+    py_cv_module__procinfo=n/a
     py_cv_module__remote_debugging=n/a
     py_cv_module__testimportmultiple=n/a
     py_cv_module__testmultiphase=n/a
     py_cv_module__testsinglephase=n/a
     py_cv_module_fcntl=n/a
+    py_cv_module_pidfd=n/a
     py_cv_module_mmap=n/a
     py_cv_module_termios=n/a
     py_cv_module_xxlimited=n/a
@@ -32510,6 +32665,87 @@ fi
 printf "%s\n" "$py_cv_module_grp" >&6; }
 
 
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for stdlib extension module pidfd" >&5
+printf %s "checking for stdlib extension module pidfd... " >&6; }
+        if test "$py_cv_module_pidfd" != "n/a"
+then :
+
+    if true
+then :
+  if test "$ac_cv_header_unistd_h" = "yes" -a "$ac_cv_header_sys_pidfd_h" = "yes"
+then :
+  py_cv_module_pidfd=yes
+else case e in #(
+  e) py_cv_module_pidfd=missing ;;
+esac
+fi
+else case e in #(
+  e) py_cv_module_pidfd=disabled ;;
+esac
+fi
+
+fi
+  as_fn_append MODULE_BLOCK "MODULE_PIDFD_STATE=$py_cv_module_pidfd$as_nl"
+  if test "x$py_cv_module_pidfd" = xyes
+then :
+
+
+
+
+fi
+   if test "$py_cv_module_pidfd" = yes; then
+  MODULE_PIDFD_TRUE=
+  MODULE_PIDFD_FALSE='#'
+else
+  MODULE_PIDFD_TRUE='#'
+  MODULE_PIDFD_FALSE=
+fi
+
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $py_cv_module_pidfd" >&5
+printf "%s\n" "$py_cv_module_pidfd" >&6; }
+
+
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for stdlib extension module _procinfo" >&5
+printf %s "checking for stdlib extension module _procinfo... " >&6; }
+        if test "$py_cv_module__procinfo" != "n/a"
+then :
+
+    if true
+then :
+  if test "$ac_cv_header_libproc_h" = "yes" -a "$ac_cv_header_libproc_h" = "yes" ||
+       test "$ac_cv_header_libutil_h" = "yes" -a "$ac_cv_header_libutil_h" = "yes"
+then :
+  py_cv_module__procinfo=yes
+else case e in #(
+  e) py_cv_module__procinfo=missing ;;
+esac
+fi
+else case e in #(
+  e) py_cv_module__procinfo=disabled ;;
+esac
+fi
+
+fi
+  as_fn_append MODULE_BLOCK "MODULE__PROCINFO_STATE=$py_cv_module__procinfo$as_nl"
+  if test "x$py_cv_module__procinfo" = xyes
+then :
+
+
+
+
+fi
+   if test "$py_cv_module__procinfo" = yes; then
+  MODULE__PROCINFO_TRUE=
+  MODULE__PROCINFO_FALSE='#'
+else
+  MODULE__PROCINFO_TRUE='#'
+  MODULE__PROCINFO_FALSE=
+fi
+
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $py_cv_module__procinfo" >&5
+printf "%s\n" "$py_cv_module__procinfo" >&6; }
+
+
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for stdlib extension module pwd" >&5
 printf %s "checking for stdlib extension module pwd... " >&6; }
         if test "$py_cv_module_pwd" != "n/a"
@@ -32708,6 +32944,7 @@ fi
 
   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $py_cv_module_termios" >&5
 printf "%s\n" "$py_cv_module_termios" >&6; }
+
 
 
 
@@ -34986,6 +35223,14 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${MODULE_GRP_TRUE}" && test -z "${MODULE_GRP_FALSE}"; then
   as_fn_error $? "conditional \"MODULE_GRP\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${MODULE_PIDFD_TRUE}" && test -z "${MODULE_PIDFD_FALSE}"; then
+  as_fn_error $? "conditional \"MODULE_PIDFD\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${MODULE__PROCINFO_TRUE}" && test -z "${MODULE__PROCINFO_FALSE}"; then
+  as_fn_error $? "conditional \"MODULE__PROCINFO\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${MODULE_PWD_TRUE}" && test -z "${MODULE_PWD_FALSE}"; then

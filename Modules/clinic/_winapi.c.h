@@ -857,6 +857,38 @@ exit:
     return return_value;
 }
 
+PyDoc_STRVAR(_winapi_GetProcessId__doc__,
+"GetProcessId($module, process_handle, /)\n"
+"--\n"
+"\n"
+"Retrieves the process identifier of the specified process.");
+
+#define _WINAPI_GETPROCESSID_METHODDEF    \
+    {"GetProcessId", (PyCFunction)_winapi_GetProcessId, METH_O, _winapi_GetProcessId__doc__},
+
+static DWORD
+_winapi_GetProcessId_impl(PyObject *module, HANDLE process_handle);
+
+static PyObject *
+_winapi_GetProcessId(PyObject *module, PyObject *arg)
+{
+    PyObject *return_value = NULL;
+    HANDLE process_handle;
+    DWORD _return_value;
+
+    if (!PyArg_Parse(arg, "" F_HANDLE ":GetProcessId", &process_handle)) {
+        goto exit;
+    }
+    _return_value = _winapi_GetProcessId_impl(module, process_handle);
+    if ((_return_value == PY_DWORD_MAX) && PyErr_Occurred()) {
+        goto exit;
+    }
+    return_value = PyLong_FromUnsignedLong(_return_value);
+
+exit:
+    return return_value;
+}
+
 #if (defined(MS_WINDOWS_DESKTOP) || defined(MS_WINDOWS_SYSTEM))
 
 PyDoc_STRVAR(_winapi_GetShortPathName__doc__,
@@ -2331,7 +2363,59 @@ exit:
     return return_value;
 }
 
+PyDoc_STRVAR(_winapi_GetTickCount64__doc__,
+"GetTickCount64($module, /)\n"
+"--\n"
+"\n"
+"Retrieves the system uptime in milliseconds.");
+
+#define _WINAPI_GETTICKCOUNT64_METHODDEF    \
+    {"GetTickCount64", (PyCFunction)_winapi_GetTickCount64, METH_NOARGS, _winapi_GetTickCount64__doc__},
+
+static PyObject *
+_winapi_GetTickCount64_impl(PyObject *module);
+
+static PyObject *
+_winapi_GetTickCount64(PyObject *module, PyObject *Py_UNUSED(ignored))
+{
+    return _winapi_GetTickCount64_impl(module);
+}
+
+PyDoc_STRVAR(_winapi_GetProcessTimes__doc__,
+"GetProcessTimes($module, handle, /)\n"
+"--\n"
+"\n"
+"Return a tuple containing process timing information.\n"
+"\n"
+"  handle\n"
+"    The handle to the process in question.\n"
+"\n"
+"(create, exit, kernel, user)\n"
+"\n"
+"All fields are python times (floating-point).");
+
+#define _WINAPI_GETPROCESSTIMES_METHODDEF    \
+    {"GetProcessTimes", (PyCFunction)_winapi_GetProcessTimes, METH_O, _winapi_GetProcessTimes__doc__},
+
+static PyObject *
+_winapi_GetProcessTimes_impl(PyObject *module, HANDLE handle);
+
+static PyObject *
+_winapi_GetProcessTimes(PyObject *module, PyObject *arg)
+{
+    PyObject *return_value = NULL;
+    HANDLE handle;
+
+    if (!PyArg_Parse(arg, "" F_HANDLE ":GetProcessTimes", &handle)) {
+        goto exit;
+    }
+    return_value = _winapi_GetProcessTimes_impl(module, handle);
+
+exit:
+    return return_value;
+}
+
 #ifndef _WINAPI_GETSHORTPATHNAME_METHODDEF
     #define _WINAPI_GETSHORTPATHNAME_METHODDEF
 #endif /* !defined(_WINAPI_GETSHORTPATHNAME_METHODDEF) */
-/*[clinic end generated code: output=4ab94eaee93a0a90 input=a9049054013a1b77]*/
+/*[clinic end generated code: output=1e3cc80ba84c8125 input=a9049054013a1b77]*/

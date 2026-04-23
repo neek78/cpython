@@ -30,7 +30,7 @@ PyDoc_STRVAR(subprocess_fork_exec__doc__,
 "If an error occurs in the child process before the exec, it is\n"
 "serialized and written to the errpipe_write fd per subprocess.py.\n"
 "\n"
-"Returns: the child process\'s PID.\n"
+"Returns:  the child process\'s PID.\n"
 "\n"
 "Raises: Only on an error in the parent process.");
 
@@ -150,4 +150,157 @@ subprocess_fork_exec(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
 exit:
     return return_value;
 }
-/*[clinic end generated code: output=942bc2748a9c2785 input=a9049054013a1b77]*/
+
+PyDoc_STRVAR(subprocess_fork_exec_with_flags__doc__,
+"fork_exec_with_flags($module, args, executable_list, close_fds,\n"
+"                     pass_fds, cwd, env, p2cread, p2cwrite, c2pread,\n"
+"                     c2pwrite, errread, errwrite, errpipe_read,\n"
+"                     errpipe_write, restore_signals, call_setsid,\n"
+"                     pgid_to_set, gid, extra_groups, uid, child_umask,\n"
+"                     preexec_fn, flags, /)\n"
+"--\n"
+"\n"
+"Spawn a fresh new child process, generating a process FD for the child.\n"
+"\n"
+"This function takes the same parameters as fork_exec(),\n"
+"plus one additional param *flags* which takes values from FORK_FLAG_* as\n"
+"defined in _do_fork.h\n"
+"\n"
+"If requested using flag FORK_FLAG_OPEN_PROCESS_FD, this will attempt to also create a\n"
+"process handle FD using whatever platform facilities are available. Accordingly this\n"
+"function has a different return signature to fork_exec.\n"
+"\n"
+"Note that if a process handle FD is returned, it\'s the caller\'s responsbility to\n"
+"clean this up.\n"
+"\n"
+"Returns:\n"
+"   A tuple of the child process\'s PID, and the process handle FD.\n"
+"   If a process handle was not requested or could not be created, -1 is returned for\n"
+"   for the process handle. Failures creating a process handle do not raise.\n"
+"\n"
+"Raises: Only on an error in the parent process.");
+
+#define SUBPROCESS_FORK_EXEC_WITH_FLAGS_METHODDEF    \
+    {"fork_exec_with_flags", _PyCFunction_CAST(subprocess_fork_exec_with_flags), METH_FASTCALL, subprocess_fork_exec_with_flags__doc__},
+
+static PyObject *
+subprocess_fork_exec_with_flags_impl(PyObject *module,
+                                     PyObject *process_args,
+                                     PyObject *executable_list,
+                                     int close_fds, PyObject *py_fds_to_keep,
+                                     PyObject *cwd_obj, PyObject *env_list,
+                                     int p2cread, int p2cwrite, int c2pread,
+                                     int c2pwrite, int errread, int errwrite,
+                                     int errpipe_read, int errpipe_write,
+                                     int restore_signals, int call_setsid,
+                                     pid_t pgid_to_set, PyObject *gid_object,
+                                     PyObject *extra_groups_packed,
+                                     PyObject *uid_object, int child_umask,
+                                     PyObject *preexec_fn, int flags);
+
+static PyObject *
+subprocess_fork_exec_with_flags(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
+{
+    PyObject *return_value = NULL;
+    PyObject *process_args;
+    PyObject *executable_list;
+    int close_fds;
+    PyObject *py_fds_to_keep;
+    PyObject *cwd_obj;
+    PyObject *env_list;
+    int p2cread;
+    int p2cwrite;
+    int c2pread;
+    int c2pwrite;
+    int errread;
+    int errwrite;
+    int errpipe_read;
+    int errpipe_write;
+    int restore_signals;
+    int call_setsid;
+    pid_t pgid_to_set;
+    PyObject *gid_object;
+    PyObject *extra_groups_packed;
+    PyObject *uid_object;
+    int child_umask;
+    PyObject *preexec_fn;
+    int flags;
+
+    if (!_PyArg_CheckPositional("fork_exec_with_flags", nargs, 23, 23)) {
+        goto exit;
+    }
+    process_args = args[0];
+    executable_list = args[1];
+    close_fds = PyObject_IsTrue(args[2]);
+    if (close_fds < 0) {
+        goto exit;
+    }
+    if (!PyTuple_Check(args[3])) {
+        _PyArg_BadArgument("fork_exec_with_flags", "argument 4", "tuple", args[3]);
+        goto exit;
+    }
+    py_fds_to_keep = args[3];
+    cwd_obj = args[4];
+    env_list = args[5];
+    p2cread = PyLong_AsInt(args[6]);
+    if (p2cread == -1 && PyErr_Occurred()) {
+        goto exit;
+    }
+    p2cwrite = PyLong_AsInt(args[7]);
+    if (p2cwrite == -1 && PyErr_Occurred()) {
+        goto exit;
+    }
+    c2pread = PyLong_AsInt(args[8]);
+    if (c2pread == -1 && PyErr_Occurred()) {
+        goto exit;
+    }
+    c2pwrite = PyLong_AsInt(args[9]);
+    if (c2pwrite == -1 && PyErr_Occurred()) {
+        goto exit;
+    }
+    errread = PyLong_AsInt(args[10]);
+    if (errread == -1 && PyErr_Occurred()) {
+        goto exit;
+    }
+    errwrite = PyLong_AsInt(args[11]);
+    if (errwrite == -1 && PyErr_Occurred()) {
+        goto exit;
+    }
+    errpipe_read = PyLong_AsInt(args[12]);
+    if (errpipe_read == -1 && PyErr_Occurred()) {
+        goto exit;
+    }
+    errpipe_write = PyLong_AsInt(args[13]);
+    if (errpipe_write == -1 && PyErr_Occurred()) {
+        goto exit;
+    }
+    restore_signals = PyObject_IsTrue(args[14]);
+    if (restore_signals < 0) {
+        goto exit;
+    }
+    call_setsid = PyObject_IsTrue(args[15]);
+    if (call_setsid < 0) {
+        goto exit;
+    }
+    pgid_to_set = PyLong_AsPid(args[16]);
+    if (pgid_to_set == -1 && PyErr_Occurred()) {
+        goto exit;
+    }
+    gid_object = args[17];
+    extra_groups_packed = args[18];
+    uid_object = args[19];
+    child_umask = PyLong_AsInt(args[20]);
+    if (child_umask == -1 && PyErr_Occurred()) {
+        goto exit;
+    }
+    preexec_fn = args[21];
+    flags = PyLong_AsInt(args[22]);
+    if (flags == -1 && PyErr_Occurred()) {
+        goto exit;
+    }
+    return_value = subprocess_fork_exec_with_flags_impl(module, process_args, executable_list, close_fds, py_fds_to_keep, cwd_obj, env_list, p2cread, p2cwrite, c2pread, c2pwrite, errread, errwrite, errpipe_read, errpipe_write, restore_signals, call_setsid, pgid_to_set, gid_object, extra_groups_packed, uid_object, child_umask, preexec_fn, flags);
+
+exit:
+    return return_value;
+}
+/*[clinic end generated code: output=435e48de2100807e input=a9049054013a1b77]*/
