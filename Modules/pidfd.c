@@ -715,6 +715,7 @@ pidfd_exec(PyObject *module)
 
     _pidfd_state* state = _get_pidfd_state(module);
 
+#ifdef PIDFD_GET_INFO
     state->PidFdGetInfoResultType=
         (PyObject *)PyStructSequence_NewType(&pidfd_getinfo_result_desc);
 
@@ -722,6 +723,7 @@ pidfd_exec(PyObject *module)
                 state->PidFdGetInfoResultType) < 0) {
         return -1;
     }
+#endif
 
     return 0;
 }
