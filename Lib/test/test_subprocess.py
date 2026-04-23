@@ -14,6 +14,7 @@ import io
 import itertools
 import os
 import errno
+import process_handle
 import tempfile
 import time
 import traceback
@@ -159,9 +160,8 @@ class ProcessTestCase(BaseTestCase):
         # killed, this call will deadlock since subprocess.call waits for the
         # child.
         self.assertRaises(subprocess.TimeoutExpired, subprocess.call,
-                          [sys.executable, "-c", "while True: pass"],
-                          timeout=0.1)
-
+                           [sys.executable, "-c", "while True: pass"],
+                           timeout=0.1)
     def test_timeout_exception(self):
         try:
             subprocess.run([sys.executable, '-c', 'import time;time.sleep(9)'], timeout = -1)
@@ -1751,7 +1751,7 @@ class ProcessTestCase(BaseTestCase):
                 return_value=subprocess._winapi.WAIT_OBJECT_0)
             with patch as mock_wait:
                 proc.wait(-1)  # negative timeout
-                mock_wait.assert_called_once_with(proc._handle, 0)
+                mock_wait.assert_called_once_with(proc.process_handle.handle, 0)
                 proc.returncode = None
 
             self.assertEqual(proc.wait(), 0)
@@ -2073,7 +2073,7 @@ class POSIXProcessTestCase(BaseTestCase):
         def __del__(self):
             pass
 
-    @mock.patch("subprocess._fork_exec")
+    @mock.patch("subprocess._posixsubprocess.fork_exec_with_flags")
     def test_exception_errpipe_normal(self, fork_exec):
         """Test error passing done through errpipe_write in the good case"""
         def proper_error(*args):
@@ -2081,7 +2081,7 @@ class POSIXProcessTestCase(BaseTestCase):
             # Write the hex for the error code EISDIR: 'is a directory'
             err_code = '{:x}'.format(errno.EISDIR).encode()
             os.write(errpipe_write, b"OSError:" + err_code + b":")
-            return 0
+            return 0, -1
 
         fork_exec.side_effect = proper_error
 
@@ -2090,7 +2090,7 @@ class POSIXProcessTestCase(BaseTestCase):
             with self.assertRaises(IsADirectoryError):
                 self.PopenNoDestructor(["non_existent_command"])
 
-    @mock.patch("subprocess._fork_exec")
+    @mock.patch("subprocess._posixsubprocess.fork_exec_with_flags")
     def test_exception_errpipe_bad_data(self, fork_exec):
         """Test error passing done through errpipe_write where its not
         in the expected format"""
@@ -2101,7 +2101,7 @@ class POSIXProcessTestCase(BaseTestCase):
             # be made about its encoding, so we'll write some
             # arbitrary hex bytes to test it out
             os.write(errpipe_write, error_data)
-            return 0
+            return 0, -1
 
         fork_exec.side_effect = bad_error
 
@@ -3540,7 +3540,9 @@ class POSIXProcessTestCase(BaseTestCase):
             p.poll()
 
         with mock.patch.object(p, 'poll', new=lambda: None):
-            p.returncode = None
+            # access _returncode directly, as there's an assert on double-setting it
+            # when accessed via the property
+            p._returncode = None
             p.send_signal(signal.SIGTERM)
         p.kill()
 
@@ -3972,7 +3974,7 @@ class MiscTests(unittest.TestCase):
 
     def test__all__(self):
         """Ensure that __all__ is populated properly."""
-        intentionally_excluded = {"list2cmdline", "Handle", "pwd", "grp", "fcntl"}
+        intentionally_excluded = {"list2cmdline", "pwd", "grp", "fcntl", "pidfd"}
         exported = set(subprocess.__all__)
         possible_exports = set()
         import types
@@ -4101,8 +4103,8 @@ class FastWaitTestCase(BaseTestCase):
     """Tests for efficient (pidfd_open() + poll() / kqueue()) process
     waiting in subprocess.Popen.wait().
     """
-    CAN_USE_PIDFD_OPEN = subprocess._CAN_USE_PIDFD_OPEN
-    CAN_USE_KQUEUE = subprocess._CAN_USE_KQUEUE
+    CAN_USE_PIDFD_OPEN = process_handle._USE_PIDFD_OPEN
+    CAN_USE_KQUEUE = process_handle._USE_KQUEUE
     COMMAND = [sys.executable, "-c", "import time; time.sleep(0.3)"]
     WAIT_TIMEOUT = 0.0001  # 0.1 ms
 
@@ -4142,14 +4144,17 @@ class FastWaitTestCase(BaseTestCase):
             self.assertEqual(p.wait(timeout=support.SHORT_TIMEOUT), 0)
         self.assertTrue(m.called)
 
-    def assert_wait_race_condition(self, patch_target, real_func):
-        # Call pidfd_open() / kqueue(), then terminate the process.
-        # Make sure that the wait call (poll() / kqueue.control())
+    @unittest.skipIf(not CAN_USE_KQUEUE, reason="needs kqueue() for proc")
+    def test_kqueue_open_race(self):
+        # Call kqueue(), then terminate the process.
+        # Make sure that the wait call (kqueue.control())
         # still works for a terminated PID.
         p = subprocess.Popen(self.COMMAND)
 
+        real_fn = select.kqueue
+
         def wrapper(*args, **kwargs):
-            ret = real_func(*args, **kwargs)
+            ret = real_fn(*args, **kwargs)
             try:
                 os.kill(p.pid, signal.SIGTERM)
                 os.waitpid(p.pid, 0)
@@ -4157,47 +4162,67 @@ class FastWaitTestCase(BaseTestCase):
                 pass
             return ret
 
-        with mock.patch(patch_target, side_effect=wrapper) as m:
+        with mock.patch("select.kqueue", side_effect=wrapper) as m:
             status = p.wait(timeout=support.SHORT_TIMEOUT)
         self.assertTrue(m.called)
         self.assertEqual(status, 0)
 
     @unittest.skipIf(not CAN_USE_PIDFD_OPEN, reason="needs pidfd_open()")
     def test_pidfd_open_race(self):
-        self.assert_wait_race_condition("os.pidfd_open", os.pidfd_open)
+        # Launch, then terminate the process.
+        # Make sure that the wait call (os.waitid())
+        # still works for a terminated PID.
+        p = subprocess.Popen(self.COMMAND)
 
-    @unittest.skipIf(not CAN_USE_KQUEUE, reason="needs kqueue() for proc")
-    def test_kqueue_race(self):
-        self.assert_wait_race_condition("select.kqueue", select.kqueue)
+        try:
+            os.kill(p.pid, signal.SIGTERM)
+            os.waitpid(p.pid, 0)
+        except OSError:
+            pass
 
-    def assert_notification_without_immediate_reap(self, patch_target):
+        real_fn = os.waitid
+
+        def wrapper(*args, **kwargs):
+            return real_fn(*args, **kwargs)
+
+        with mock.patch("os.waitid", side_effect=wrapper) as m:
+            status = p.wait(timeout=support.SHORT_TIMEOUT)
+        self.assertTrue(m.called)
+        self.assertEqual(status, 0)
+
+    def assert_notification_without_immediate_reap(self, patch_class, patch_target):
         # Verify fallback to busy polling when poll() / kqueue()
         # succeeds, but waitpid(pid, WNOHANG) returns (0, 0).
+
+        # the process handle based wait will call os.waitid()
+        # os.waitid() returns None when the syscall returns si_pid == 0
+        def waitid_wrapper(id_type, pid, flags):
+            return None
+
+        real_waitpid = os.waitpid
         def waitpid_wrapper(pid, flags):
-            nonlocal ncalls
-            ncalls += 1
-            if ncalls == 1:
-                return (0, 0)
             return real_waitpid(pid, flags)
 
-        ncalls = 0
-        real_waitpid = os.waitpid
-        with mock.patch.object(subprocess.Popen, patch_target, return_value=True) as m1:
-            with mock.patch("os.waitpid", side_effect=waitpid_wrapper) as m2:
+        with mock.patch("os.waitpid", side_effect=waitpid_wrapper) as m1:
+            with mock.patch("os.waitid", side_effect=waitid_wrapper) as m2:
                 p = subprocess.Popen(self.COMMAND)
                 with self.assertRaises(subprocess.TimeoutExpired):
                     p.wait(self.WAIT_TIMEOUT)
                 self.assertEqual(p.wait(timeout=support.SHORT_TIMEOUT), 0)
+                self.assertEqual(p.wait_kind, subprocess.WaitKind.BUSY)
+
         self.assertTrue(m1.called)
         self.assertTrue(m2.called)
 
     @unittest.skipIf(not CAN_USE_PIDFD_OPEN, reason="needs pidfd_open()")
     def test_pidfd_open_notification_without_immediate_reap(self):
-        self.assert_notification_without_immediate_reap("_wait_pidfd")
+        self.assert_notification_without_immediate_reap(
+                process_handle.PidFdProcessHandle, "block_while_alive")
 
     @unittest.skipIf(not CAN_USE_KQUEUE, reason="needs kqueue() for proc")
     def test_kqueue_notification_without_immediate_reap(self):
-        self.assert_notification_without_immediate_reap("_wait_kqueue")
+        self.assert_notification_without_immediate_reap(
+                process_handle._KQueuePoller, "block_while_alive")
 
     @unittest.skipUnless(
         CAN_USE_PIDFD_OPEN or CAN_USE_KQUEUE,
@@ -4212,6 +4237,56 @@ class FastWaitTestCase(BaseTestCase):
                 p.wait(self.WAIT_TIMEOUT)
             self.assertEqual(p.wait(timeout=support.LONG_TIMEOUT), 0)
         self.assertFalse(m.called)
+
+class BlockingWaitTestCase(BaseTestCase):
+    """Tests that we can use a process_handle/kqueue/pidfd to wait
+    instead of busy waiting.
+    """
+    COMMAND = [sys.executable, "-c", "import time, sys; time.sleep(5); sys.exit(7)"]
+
+    @unittest.skipIf(mswindows, "blocking wait is not a separate case on windows")
+    def test_blocking_wait(self):
+        p = subprocess.Popen(self.COMMAND)
+
+        start = time.monotonic()
+
+        # we should block indefinitely
+        p._wait_blocking(timeout=None)
+
+        # should have blocked for about 5 sec
+        elapsed = time.monotonic() - start
+        self.assertGreater(elapsed, 4)
+
+        self.assertEqual(p.returncode, 7)
+
+    @unittest.skipIf(mswindows, "blocking wait is not a separate case on windows")
+    def test_blocking_wait_timeout(self):
+        p = subprocess.Popen(self.COMMAND)
+
+        start = time.monotonic()
+
+        # we should block indefinitely, and get None when the child quits
+        with self.assertRaises(subprocess.TimeoutExpired):
+            p._wait_blocking(timeout=2)
+
+        # should not get a returncode as we should have timed out
+        self.assertIsNone(p.returncode)
+
+        elapsed = time.monotonic() - start
+        self.assertGreater(elapsed, 1.9)
+
+        # reap the child
+        p.wait()
+
+        # now should have a returncode
+        self.assertEqual(p.returncode, 7)
+
+
+
+        #FIXME: test with closed handle
+
+class PidFdSpawnTestCase(BaseTestCase):
+    pass
 
 if __name__ == "__main__":
     unittest.main()

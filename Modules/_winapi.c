@@ -1636,6 +1636,32 @@ _winapi_GetModuleFileName_impl(PyObject *module, HMODULE module_handle)
     return PyUnicode_FromWideChar(filename, -1);
 }
 
+/*[clinic input]
+_winapi.GetProcessId -> DWORD
+
+    process_handle: HANDLE
+    /
+
+Retrieves the process identifier of the specified process.
+[clinic start generated code]*/
+
+static DWORD
+_winapi_GetProcessId_impl(PyObject *module, HANDLE process_handle)
+/*[clinic end generated code: output=779c101553efb56b input=67be1b6bfbf213bb]*/
+{
+    DWORD result;
+
+    Py_BEGIN_ALLOW_THREADS
+    result = GetProcessId(process_handle);
+    Py_END_ALLOW_THREADS
+
+    if (result == 0)
+        PyErr_SetFromWindowsErr(GetLastError());
+	return -1;
+
+    return result;
+}
+
 #if defined(MS_WINDOWS_DESKTOP) || defined(MS_WINDOWS_SYSTEM)
 
 /*[clinic input]
@@ -3080,6 +3106,84 @@ _winapi_ReportEvent_impl(PyObject *module, HANDLE handle,
 }
 
 
+/*[clinic input]
+_winapi.GetTickCount64
+
+Retrieves the system uptime in milliseconds.
+
+[clinic start generated code]*/
+
+static PyObject *
+_winapi_GetTickCount64_impl(PyObject *module)
+/*[clinic end generated code: output=cb33c0568f0b3ed1 input=69750f4cf431d292]*/
+{
+    ULONGLONG ticks = GetTickCount64();
+    return PyLong_FromUnsignedLongLong(ticks);
+}
+
+static PyObject*
+_convert_absolute_FILETIME_to_PyTime(FILETIME *in_ptr)
+{
+    /* Seconds between 1.1.1601 and 1.1.1970 */
+    static const __int64 secs_between_epochs = 11644473600;
+
+    ULARGE_INTEGER t;
+    t.LowPart = in_ptr->dwLowDateTime;
+    t.HighPart = in_ptr->dwHighDateTime;
+
+    if (t.QuadPart == 0) {
+        Py_RETURN_NONE;
+    }
+
+    /* FILETIME is in units of 100 nsec. */
+    double time_out = (double)t.QuadPart / 10'000'000 - secs_between_epochs;
+
+    return PyFloat_FromDouble(time_out);
+}
+
+static PyObject*
+_convert_interval_FILETIME_to_PyTime(FILETIME *in_ptr)
+{
+    ULARGE_INTEGER t;
+    t.LowPart = in_ptr->dwLowDateTime;
+    t.HighPart = in_ptr->dwHighDateTime;
+
+    /* FILETIME is in units of 100 nsec. */
+    double time_out = (double)t.QuadPart / 10'000'000 ;
+
+    return PyFloat_FromDouble(time_out);
+}
+
+/*[clinic input]
+_winapi.GetProcessTimes
+    handle: HANDLE
+        The handle to the process in question.
+    /
+
+Return a tuple containing process timing information.
+
+(create, exit, kernel, user)
+
+All fields are python times (floating-point).
+[clinic start generated code]*/
+
+static PyObject *
+_winapi_GetProcessTimes_impl(PyObject *module, HANDLE handle)
+/*[clinic end generated code: output=fea220f20b2c9d4b input=484cfb6f900411b1]*/
+{
+    FILETIME create, exit, kernel, user;
+
+    if (GetProcessTimes(handle, &create, &exit, &kernel, &user) == 0) {
+        return PyErr_SetFromWindowsErr(0);
+    }
+
+    return Py_BuildValue("OOOO",
+        _convert_absolute_FILETIME_to_PyTime(&create),
+        _convert_absolute_FILETIME_to_PyTime(&exit),
+        _convert_interval_FILETIME_to_PyTime(&kernel),
+        _convert_interval_FILETIME_to_PyTime(&user));
+}
+
 static PyMethodDef winapi_functions[] = {
     _WINAPI_CLOSEHANDLE_METHODDEF
     _WINAPI_CONNECTNAMEDPIPE_METHODDEF
@@ -3099,6 +3203,7 @@ static PyMethodDef winapi_functions[] = {
     _WINAPI_GETLASTERROR_METHODDEF
     _WINAPI_GETLONGPATHNAME_METHODDEF
     _WINAPI_GETMODULEFILENAME_METHODDEF
+    _WINAPI_GETPROCESSID_METHODDEF
     _WINAPI_GETSHORTPATHNAME_METHODDEF
     _WINAPI_GETSTDHANDLE_METHODDEF
     _WINAPI_GETVERSION_METHODDEF
@@ -3130,6 +3235,8 @@ static PyMethodDef winapi_functions[] = {
     _WINAPI__MIMETYPES_READ_WINDOWS_REGISTRY_METHODDEF
     _WINAPI_NEEDCURRENTDIRECTORYFOREXEPATH_METHODDEF
     _WINAPI_COPYFILE2_METHODDEF
+    _WINAPI_GETTICKCOUNT64_METHODDEF
+    _WINAPI_GETPROCESSTIMES_METHODDEF
     {NULL, NULL}
 };
 

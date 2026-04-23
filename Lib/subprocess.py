@@ -1,4 +1,5 @@
 # subprocess - Subprocesses with accessible I/O streams
+
 #
 # For more information about this module, see PEP 324.
 #
@@ -41,10 +42,13 @@ getstatusoutput(...): Runs a command in the shell, waits for it to complete,
 """
 
 import builtins
+import enum
 import errno
 import io
 import locale
 import os
+import process_handle
+import _process_support
 import time
 import signal
 import sys
@@ -59,10 +63,14 @@ try:
 except ImportError:
     fcntl = None
 
+try:
+    import pidfd
+except ImportError:
+    pidfd = None
 
 __all__ = ["Popen", "PIPE", "STDOUT", "call", "check_call", "getstatusoutput",
            "getoutput", "check_output", "run", "CalledProcessError", "DEVNULL",
-           "SubprocessError", "TimeoutExpired", "CompletedProcess"]
+           "SubprocessError", "TimeoutExpired", "CompletedProcess", "WaitKind"]
            # NOTE: We intentionally exclude list2cmdline as it is
            # considered an internal implementation detail.  issue10838.
 
@@ -103,7 +111,10 @@ if _mswindows:
                     "CREATE_DEFAULT_ERROR_MODE", "CREATE_BREAKAWAY_FROM_JOB"])
 else:
     if _can_fork_exec:
+        import _posixsubprocess
+        # other modules want to call this directly:
         from _posixsubprocess import fork_exec as _fork_exec
+
         # used in methods that are called by __del__
         class _del_safe:
             waitpid = os.waitpid
@@ -217,25 +228,6 @@ if _mswindows:
                                wShowWindow=self.wShowWindow,
                                lpAttributeList=attr_list)
 
-
-    class Handle(int):
-        closed = False
-
-        def Close(self, CloseHandle=_winapi.CloseHandle):
-            if not self.closed:
-                self.closed = True
-                CloseHandle(self)
-
-        def Detach(self):
-            if not self.closed:
-                self.closed = True
-                return int(self)
-            raise ValueError("already closed")
-
-        def __repr__(self):
-            return "%s(%d)" % (self.__class__.__name__, int(self))
-
-        __del__ = Close
 else:
     # When select or poll has indicated that the file is writable,
     # we can write up to _PIPE_BUF bytes without risk of blocking.
@@ -723,6 +715,13 @@ def _use_posix_spawn():
         # and properly reports errors
         return True
 
+    # if we have pdfork (FreeBSD), don't use posix_spawn() so we can get a
+    # process descriptor - only pdfork() gives us one.
+    # FIXME: this may not be entirely true, i think there's a way to get
+    # freebsd posix_spawn to do this
+    if hasattr(os, "pdfork"):
+        return False
+
     # Check libc name and runtime libc version
     try:
         ver = os.confstr('CS_GNU_LIBC_VERSION')
@@ -749,65 +748,41 @@ def _use_posix_spawn():
     return False
 
 
-def _can_use_pidfd_open():
-    # Availability: Linux >= 5.3
-    if not hasattr(os, "pidfd_open"):
-        return False
-    try:
-        pidfd = os.pidfd_open(os.getpid(), 0)
-    except OSError as err:
-        if err.errno in {errno.EMFILE, errno.ENFILE}:
-            # transitory 'too many open files'
-            return True
-        # likely blocked by security policy like SECCOMP (EPERM,
-        # EACCES, ENOSYS)
-        return False
-    else:
-        os.close(pidfd)
-        return True
+def _use_pidfd_spawn():
+    """Check if pidif_spawn() can be used for subprocess."""
 
-
-def _can_use_kqueue():
-    # Availability: macOS, BSD
-    names = (
-        "kqueue",
-        "KQ_EV_ADD",
-        "KQ_EV_ONESHOT",
-        "KQ_FILTER_PROC",
-        "KQ_NOTE_EXIT",
-    )
-    if not all(hasattr(select, x) for x in names):
+    # check the os module first, so we fail fast on non linux platforms
+    if not hasattr(os, 'pidfd_spawn'):
+        # os.pidfd_spawn() is not available
         return False
-    kq = None
-    try:
-        kq = select.kqueue()
-        kev = select.kevent(
-            os.getpid(),
-            filter=select.KQ_FILTER_PROC,
-            flags=select.KQ_EV_ADD | select.KQ_EV_ONESHOT,
-            fflags=select.KQ_NOTE_EXIT,
-        )
-        kq.control([kev], 1, 0)
-        return True
-    except OSError as err:
-        if err.errno in {errno.EMFILE, errno.ENFILE}:
-            # transitory 'too many open files'
-            return True
+
+    # prerequisites for posix_spawn() apply to us too.
+    if not _use_posix_spawn():
         return False
-    finally:
-        if kq is not None:
-            kq.close()
 
+    # we also can't use pidfd_spawn without a method to map back to
+    # pid, as the pidfd_spawn call doesn't give one directly
+    if pidfd is None:
+        return False
 
-_CAN_USE_PIDFD_OPEN = not _mswindows and _can_use_pidfd_open()
-_CAN_USE_KQUEUE = not _mswindows and _can_use_kqueue()
+    if not hasattr(pidfd, 'pidfd_getpid'):
+        # os.pidfd_spawn() is not available
+        return False
+
+    #FIXME: check pidfd_getpid actually works
+
+    return True
 
 
 # These are primarily fail-safe knobs for negatives. A True value does not
 # guarantee the given libc/syscall API will be used.
 _USE_POSIX_SPAWN = _use_posix_spawn()
+_USE_PIDFD_SPAWN = _use_pidfd_spawn()
 _HAVE_POSIX_SPAWN_CLOSEFROM = hasattr(os, 'POSIX_SPAWN_CLOSEFROM')
 
+class WaitKind(enum.Enum):
+    BLOCKING = 1,
+    BUSY = 2
 
 class Popen:
     """ Execute a child program in a new process.
@@ -859,6 +834,8 @@ class Popen:
 
       pass_fds (POSIX only)
 
+      use_pid_handle FIXME
+
       encoding and errors: Text mode encoding and error handling to use for
           file objects stdin, stdout and stderr.
 
@@ -875,7 +852,7 @@ class Popen:
                  restore_signals=True, start_new_session=False,
                  pass_fds=(), *, user=None, group=None, extra_groups=None,
                  encoding=None, errors=None, text=None, umask=-1, pipesize=-1,
-                 process_group=None):
+                 process_group=None, use_pid_handle=False):
         """Create new Popen instance."""
         if not _can_fork_exec:
             raise OSError(
@@ -883,12 +860,14 @@ class Popen:
             )
 
         _cleanup()
+
         # Held while anything is calling waitpid before returncode has been
         # updated to prevent clobbering returncode if wait() or poll() are
         # called from multiple threads at once.  After acquiring the lock,
         # code must re-check self.returncode to see if another thread just
         # finished a waitpid() call.
         self._waitpid_lock = threading.Lock()
+        self._threads_waiting = 0
 
         self._input = None
         self._communication_started = False
@@ -925,11 +904,14 @@ class Popen:
         self.stdin = None
         self.stdout = None
         self.stderr = None
-        self.pid = None
-        self.returncode = None
+        self._returncode = None
         self.encoding = encoding
         self.errors = errors
         self.pipesize = pipesize
+        self._wait_type = None
+
+        self._process_handle = None
+        self._use_pid_handle = use_pid_handle
 
         # Validate the combinations of text and universal_newlines
         if (text is not None and universal_newlines is not None
@@ -1065,11 +1047,11 @@ class Popen:
 
         if _mswindows:
             if p2cwrite != -1:
-                p2cwrite = msvcrt.open_osfhandle(p2cwrite.Detach(), 0)
+                p2cwrite = msvcrt.open_osfhandle(p2cwrite.detach(), 0)
             if c2pread != -1:
-                c2pread = msvcrt.open_osfhandle(c2pread.Detach(), 0)
+                c2pread = msvcrt.open_osfhandle(c2pread.detach(), 0)
             if errread != -1:
-                errread = msvcrt.open_osfhandle(errread.Detach(), 0)
+                errread = msvcrt.open_osfhandle(errread.detach(), 0)
 
         try:
             if p2cwrite != -1:
@@ -1118,14 +1100,15 @@ class Popen:
                     to_close.append(self._devnull)
                 for fd in to_close:
                     try:
-                        if _mswindows and isinstance(fd, Handle):
-                            fd.Close()
+                        if _mswindows and isinstance(fd, _process_support.Handle):
+                            fd.close()
                         else:
                             os.close(fd)
                     except OSError:
                         pass
 
             raise
+
 
     def __repr__(self):
         obj_repr = (
@@ -1139,6 +1122,26 @@ class Popen:
     __class_getitem__ = classmethod(types.GenericAlias)
 
     @property
+    def process_handle(self):
+        return self._process_handle
+
+    # returncode converted to a property so we can check for double
+    # setting, which usually means a race condition
+    @property
+    def returncode(self):
+        return self._returncode
+
+    @returncode.setter
+    def returncode(self, value):
+        # this check is not immune from race conditions, but don't want to mess
+        # with the (non-recursive) lock here
+        # windows doesn't have the clobbering problem, so access is not locked
+        # and this gets written multiple times.
+        if not _mswindows:
+            assert self._returncode is None
+        self._returncode = value
+
+    @property
     def universal_newlines(self):
         # universal_newlines as retained as an alias of text_mode for API
         # compatibility. bpo-31756
@@ -1147,6 +1150,10 @@ class Popen:
     @universal_newlines.setter
     def universal_newlines(self, universal_newlines):
         self.text_mode = bool(universal_newlines)
+
+    @property
+    def wait_kind(self):
+        return self._wait_kind
 
     def _translate_newlines(self, data, encoding, errors):
         data = data.decode(encoding, errors)
@@ -1357,11 +1364,11 @@ class Popen:
         with contextlib.ExitStack() as stack:
             if _mswindows:
                 if p2cread != -1:
-                    stack.callback(p2cread.Close)
+                    stack.callback(p2cread.close)
                 if c2pwrite != -1:
-                    stack.callback(c2pwrite.Close)
+                    stack.callback(c2pwrite.close)
                 if errwrite != -1:
-                    stack.callback(errwrite.Close)
+                    stack.callback(errwrite.close)
             else:
                 if p2cread != -1 and p2cwrite != -1 and p2cread != devnull_fd:
                     stack.callback(os.close, p2cread)
@@ -1388,8 +1395,8 @@ class Popen:
                 del self._devnull
             for fd in to_close:
                 try:
-                    if _mswindows and isinstance(fd, Handle):
-                        fd.Close()
+                    if _mswindows and isinstance(fd, _process_support.Handle):
+                        fd.close()
                     else:
                         os.close(fd)
                 except OSError:
@@ -1416,12 +1423,12 @@ class Popen:
                     p2cread = _winapi.GetStdHandle(_winapi.STD_INPUT_HANDLE)
                     if p2cread is None:
                         p2cread, _ = _winapi.CreatePipe(None, 0)
-                        p2cread = Handle(p2cread)
+                        p2cread = _process_support.Handle(p2cread)
                         err_close_fds.append(p2cread)
                         _winapi.CloseHandle(_)
                 elif stdin == PIPE:
                     p2cread, p2cwrite = _winapi.CreatePipe(None, 0)
-                    p2cread, p2cwrite = Handle(p2cread), Handle(p2cwrite)
+                    p2cread, p2cwrite = _process_support.Handle(p2cread), _process_support.Handle(p2cwrite)
                     err_close_fds.extend((p2cread, p2cwrite))
                 elif stdin == DEVNULL:
                     p2cread = msvcrt.get_osfhandle(self._get_devnull())
@@ -1436,12 +1443,12 @@ class Popen:
                     c2pwrite = _winapi.GetStdHandle(_winapi.STD_OUTPUT_HANDLE)
                     if c2pwrite is None:
                         _, c2pwrite = _winapi.CreatePipe(None, 0)
-                        c2pwrite = Handle(c2pwrite)
+                        c2pwrite = _process_support.Handle(c2pwrite)
                         err_close_fds.append(c2pwrite)
                         _winapi.CloseHandle(_)
                 elif stdout == PIPE:
                     c2pread, c2pwrite = _winapi.CreatePipe(None, 0)
-                    c2pread, c2pwrite = Handle(c2pread), Handle(c2pwrite)
+                    c2pread, c2pwrite = _process_support.Handle(c2pread), _process_support.Handle(c2pwrite)
                     err_close_fds.extend((c2pread, c2pwrite))
                 elif stdout == DEVNULL:
                     c2pwrite = msvcrt.get_osfhandle(self._get_devnull())
@@ -1456,12 +1463,12 @@ class Popen:
                     errwrite = _winapi.GetStdHandle(_winapi.STD_ERROR_HANDLE)
                     if errwrite is None:
                         _, errwrite = _winapi.CreatePipe(None, 0)
-                        errwrite = Handle(errwrite)
+                        errwrite = _process_support.Handle(errwrite)
                         err_close_fds.append(errwrite)
                         _winapi.CloseHandle(_)
                 elif stderr == PIPE:
                     errread, errwrite = _winapi.CreatePipe(None, 0)
-                    errread, errwrite = Handle(errread), Handle(errwrite)
+                    errread, errwrite = _process_support.Handle(errread), _process_support.Handle(errwrite)
                     err_close_fds.extend((errread, errwrite))
                 elif stderr == STDOUT:
                     errwrite = c2pwrite
@@ -1485,7 +1492,7 @@ class Popen:
                 _winapi.GetCurrentProcess(), handle,
                 _winapi.GetCurrentProcess(), 0, 1,
                 _winapi.DUPLICATE_SAME_ACCESS)
-            return Handle(h)
+            return _process_support.Handle(h)
 
 
         def _filter_handle_list(self, handle_list):
@@ -1624,9 +1631,15 @@ class Popen:
 
             # Retain the process handle, but close the thread handle
             self._child_created = True
-            self._handle = Handle(hp)
+            handle = _process_support.Handle(hp)
             self.pid = pid
             _winapi.CloseHandle(ht)
+
+            # Build a (python) process handle.
+            # It gets its own (underlying) handle because the lifetime
+            # of this object may exceed our own
+            self._process_handle = process_handle.build_from_handle(
+                    handle, pid)
 
         def _internal_poll(self, _deadstate=None,
                 _WaitForSingleObject=_winapi.WaitForSingleObject,
@@ -1640,40 +1653,30 @@ class Popen:
 
             """
             if self.returncode is None:
-                if _WaitForSingleObject(self._handle, 0) == _WAIT_OBJECT_0:
-                    self.returncode = _GetExitCodeProcess(self._handle)
+                if _WaitForSingleObject(self.process_handle.handle, 0) == _WAIT_OBJECT_0:
+                    self.returncode = _GetExitCodeProcess(self.process_handle.handle)
             return self.returncode
 
 
         def _wait(self, timeout):
             """Internal implementation of wait() on Windows."""
-            if timeout is None:
-                timeout_millis = _winapi.INFINITE
-            elif timeout <= 0:
-                timeout_millis = 0
-            else:
-                timeout_millis = int(timeout * 1000)
-            if self.returncode is None:
-                # API note: Returns immediately if timeout_millis == 0.
-                result = _winapi.WaitForSingleObject(self._handle,
-                                                     timeout_millis)
-                if result == _winapi.WAIT_TIMEOUT:
-                    raise TimeoutExpired(self.args, timeout)
-                self.returncode = _winapi.GetExitCodeProcess(self._handle)
-            return self.returncode
-
+            try:
+                retcode = self.process_handle.block_for_wait(timeout)
+                self._waitkind = WaitKind.BLOCKING
+                self._returncode = retcode
+                return retcode
+            except process_handle.TimeoutExpired:
+                raise TimeoutExpired(self.args, timeout)
 
         def _readerthread(self, fh, buffer):
             buffer.append(fh.read())
             fh.close()
 
-
         def _writerthread(self, input):
             self._stdin_write(input)
 
-
         def _communicate(self, input, endtime, orig_timeout):
-            # Start reader threads feeding into a list hanging off of this
+            # Start reader threads feeding into a list hanging off of thirets
             # object, unless they've already been started.
             if self.stdout and not hasattr(self, "_stdout_buff"):
                 self._stdout_buff = []
@@ -1739,32 +1742,11 @@ class Popen:
 
         def send_signal(self, sig):
             """Send a signal to the process."""
-            # Don't signal a process that we know has already died.
-            if self.returncode is not None:
-                return
-            if sig == signal.SIGTERM:
-                self.terminate()
-            elif sig == signal.CTRL_C_EVENT:
-                os.kill(self.pid, signal.CTRL_C_EVENT)
-            elif sig == signal.CTRL_BREAK_EVENT:
-                os.kill(self.pid, signal.CTRL_BREAK_EVENT)
-            else:
-                raise ValueError("Unsupported signal: {}".format(sig))
+            self.process_handle.send_signal(sig)
 
         def terminate(self):
             """Terminates the process."""
-            # Don't terminate a process that we know has already died.
-            if self.returncode is not None:
-                return
-            try:
-                _winapi.TerminateProcess(self._handle, 1)
-            except PermissionError:
-                # ERROR_ACCESS_DENIED (winerror 5) is received when the
-                # process already died.
-                rc = _winapi.GetExitCodeProcess(self._handle)
-                if rc == _winapi.STILL_ACTIVE:
-                    raise
-                self.returncode = rc
+            self.process_handle.terminate()
 
         kill = terminate
 
@@ -1869,7 +1851,15 @@ class Popen:
             if file_actions:
                 kwargs['file_actions'] = file_actions
 
-            self.pid = os.posix_spawn(executable, args, env, **kwargs)
+            if not _USE_PIDFD_SPAWN:
+                self.pid = os.posix_spawn(executable, args, env, **kwargs)
+                #print("posix_spawn pid", pid)
+                self._process_handle = process_handle.build_from_pid(self.pid)
+            else:
+                fd = os.pidfd_spawn(executable, args, env, **kwargs)
+                self._process_handle = process_handle.build_from_fd(fd)
+                self.pid = self._process_handle.pid
+
             self._child_created = True
 
             self._close_pipe_fds(p2cread, p2cwrite,
@@ -1925,6 +1915,7 @@ class Popen:
                     and gids is None
                     and uid is None
                     and umask < 0):
+
                 self._posix_spawn(args, executable, env, restore_signals, close_fds,
                                   p2cread, p2cwrite,
                                   c2pread, c2pwrite,
@@ -1970,7 +1961,12 @@ class Popen:
                             for dir in os.get_exec_path(env))
                     fds_to_keep = set(pass_fds)
                     fds_to_keep.add(errpipe_write)
-                    self.pid = _fork_exec(
+
+                    flags = 0
+                    if not self._use_pid_handle:
+                        flags |= os.FORK_FLAG_OPEN_PROCESS_FD
+
+                    ret = _posixsubprocess.fork_exec_with_flags(
                             args, executable_list,
                             close_fds, tuple(sorted(map(int, fds_to_keep))),
                             cwd, env_list,
@@ -1979,8 +1975,41 @@ class Popen:
                             errpipe_read, errpipe_write,
                             restore_signals, start_new_session,
                             process_group, gid, gids, uid, umask,
-                            preexec_fn)
+                            preexec_fn, flags)
+
+                    self.pid, process_fd = ret
+
+                    # make sure we didn't get a process_fd if we didn't want one
+                    if self._use_pid_handle:
+                        assert process_fd == -1
+
+                    # Was _fork_exec() able to build a process handle?
+                    # it's important to build this early (at least in this first
+                    # case where we have a process_fd) as we're responsible for
+                    # cleaning up this fd - which is just an int. Getting it into
+                    # a wrapper means we won't leak it.
+                    if process_fd > -1:
+                        wrapped_pfd = _process_support.FdWrapper(process_fd)
+                    else:
+                        wrapped_pfd = None
+
+                    # process_fd now lives in wrapped_pfd - clear the int value so no
+                    # one accidentally accesses it.
+                    process_fd = None
+
+                    # some failure modes of fork_exec* return 0 pid. Don't build a
+                    # handle in this case
+                    if self.pid > 0:
+                        if wrapped_pfd is not None:
+                            self._process_handle = process_handle.build_from_fd(
+                                fd=wrapped_pfd, pid=self.pid)
+                        else:
+                            # use a pid based handle
+                            self._process_handle = process_handle.build_from_pid(
+                                pid=self.pid, force_pid_based=self._use_pid_handle)
+
                     self._child_created = True
+                    wrapped_pfd = None
                 finally:
                     # be sure the FD is closed no matter what
                     os.close(errpipe_write)
@@ -2055,6 +2084,7 @@ class Popen:
             else:
                 self.returncode = _del_safe.waitstatus_to_exitcode(sts)
 
+
         def _internal_poll(self, _deadstate=None, _del_safe=_del_safe):
             """Check if child process has terminated.  Returns returncode
             attribute.
@@ -2101,132 +2131,114 @@ class Popen:
                 sts = 0
             return (pid, sts)
 
-        def _wait_pidfd(self, timeout):
-            """Wait for PID to terminate using pidfd_open() + poll().
-            Linux >= 5.3 only.
+        def _wait_blocking(self, timeout):
             """
-            if not _CAN_USE_PIDFD_OPEN:
-                return False
-            try:
-                pidfd = os.pidfd_open(self.pid, 0)
-            except OSError:
-                # May be:
-                # - ESRCH: no such process
-                # - EMFILE, ENFILE: too many open files (usually 1024)
-                # - ENODEV: anonymous inode filesystem not supported
-                # - EPERM, EACCES, ENOSYS: undocumented; may happen if
-                #   blocked by security policy like SECCOMP
-                return False
+            Attempt to wait() on the process.
 
-            try:
-                poller = select.poll()
-                poller.register(pidfd, select.POLLIN)
-                events = poller.poll(timeout * 1000)
-                if not events:
-                    raise TimeoutExpired(self.args, timeout)
-                return True
-            finally:
-                os.close(pidfd)
+            This implementation will use the process_handle to perform
+            a blocking wait, which will use the optimal wait mechanism available.
+            For example, on linux it'll use a pidfd if possible to wait, avoiding
+            the race conditions of using a pid.
 
-        def _wait_kqueue(self, timeout):
-            """Wait for PID to terminate using kqueue(). macOS and BSD only."""
-            if not _CAN_USE_KQUEUE:
-                return False
-            try:
-                kq = select.kqueue()
-            except OSError:
-                # likely EMFILE / ENFILE (too many open files)
-                return False
+            This function does its own locking, so should not be called with any
+            locks held.
 
-            try:
-                kev = select.kevent(
-                    self.pid,
-                    filter=select.KQ_FILTER_PROC,
-                    flags=select.KQ_EV_ADD | select.KQ_EV_ONESHOT,
-                    fflags=select.KQ_NOTE_EXIT,
-                )
-                try:
-                    events = kq.control([kev], 1, timeout)  # wait
-                except OSError:
-                    return False
-                else:
-                    if not events:
-                        raise TimeoutExpired(self.args, timeout)
-                    return True
-            finally:
-                kq.close()
-
-        def _wait(self, timeout):
-            """Internal implementation of wait() on POSIX.
-
-            Uses efficient pidfd_open() + poll() on Linux or kqueue()
-            on macOS/BSD when available. Falls back to polling
-            waitpid(WNOHANG) otherwise.
             """
-            if self.returncode is not None:
-                return self.returncode
+            if timeout is not None and timeout < 0:
+                raise TimeoutExpired(self.args, timeout)
 
-            if timeout is not None:
-                if timeout < 0:
-                    raise TimeoutExpired(self.args, timeout)
-                started = _time()
-                endtime = started + timeout
+            wflags = os.WEXITED
+            block_returncode = None
+            try:
+                # FIXME: try a NOHANG wait first before blocking
+                if timeout is not None:
+                    block_returncode = self.process_handle.block_for_wait(timeout)
+                    wflags |= os.WNOHANG
 
-                # Try efficient wait first.
-                if self._wait_pidfd(timeout) or self._wait_kqueue(timeout):
-                    # Process is gone. At this point os.waitpid(pid, 0)
-                    # will return immediately, but in very rare races
-                    # the PID may have been reused.
-                    # os.waitpid(pid, WNOHANG) ensures we attempt a
-                    # non-blocking reap without blocking indefinitely.
-                    with self._waitpid_lock:
+                # FIXME: as an optimisation, if we already know returncode,
+                # we could return now, so long as one thread holds the lock
+                # and is waiting
+                with self._waitpid_lock:
+                    if self.returncode is None:
+                        wait_returncode = self.process_handle.wait(wflags)
+                        if wait_returncode is not None:
+                            self.returncode = wait_returncode
+
+                        if block_returncode is not None and wait_returncode is not None:
+                            #print("\nBR", block_returncode, "WR", wait_returncode)
+                            assert block_returncode == wait_returncode
+                            #print("match!")
+
+            except process_handle.TimeoutExpired:
+                raise TimeoutExpired(self.args, timeout)
+
+
+        def _wait_busy_loop(self, timeout, endtime):
+            # Enter a busy loop if we have a timeout.  This busy loop was
+            # cribbed from Lib/threading.py in Thread.wait() at r71065.
+            delay = 0.0005 # 500 us -> initial delay of 1 ms
+            while True:
+                if self._waitpid_lock.acquire(False):
+                    try:
                         if self.returncode is not None:
-                            return self.returncode  # Another thread waited.
+                            break  # Another thread waited.
                         (pid, sts) = self._try_wait(os.WNOHANG)
                         assert pid == self.pid or pid == 0
                         if pid == self.pid:
                             self._handle_exitstatus(sts)
-                            return self.returncode
-                        # os.waitpid(pid, WNOHANG) returned 0 instead
-                        # of our PID, meaning PID has not yet exited,
-                        # even though poll() / kqueue() said so. Very
-                        # rare and mostly theoretical. Fallback to busy
-                        # polling.
-                        elapsed = _time() - started
-                        endtime -= elapsed
-
-                # Enter a busy loop if we have a timeout.  This busy loop was
-                # cribbed from Lib/threading.py in Thread.wait() at r71065.
-                delay = 0.0005 # 500 us -> initial delay of 1 ms
-                while True:
-                    if self._waitpid_lock.acquire(False):
-                        try:
-                            if self.returncode is not None:
-                                break  # Another thread waited.
-                            (pid, sts) = self._try_wait(os.WNOHANG)
-                            assert pid == self.pid or pid == 0
-                            if pid == self.pid:
-                                self._handle_exitstatus(sts)
-                                break
-                        finally:
-                            self._waitpid_lock.release()
-                    remaining = self._remaining_time(endtime)
+                            break
+                    finally:
+                        self._waitpid_lock.release()
+                remaining = self._remaining_time(endtime)
+                delay = min(delay * 2, .05)
+                if remaining is not None:
                     if remaining <= 0:
                         raise TimeoutExpired(self.args, timeout)
-                    delay = min(delay * 2, remaining, .05)
-                    time.sleep(delay)
-            else:
-                while self.returncode is None:
-                    with self._waitpid_lock:
-                        if self.returncode is not None:
-                            break  # Another thread waited.
-                        (pid, sts) = self._try_wait(0)
-                        # Check the pid and loop as waitpid has been known to
-                        # return 0 even without WNOHANG in odd situations.
-                        # http://bugs.python.org/issue14396.
-                        if pid == self.pid:
-                            self._handle_exitstatus(sts)
+                    delay = min(delay, remaining)
+                time.sleep(delay)
 
+        def _wait(self, timeout):
+            """Internal implementation of wait() on POSIX.
+            """
+            # already waited?
+            if self.returncode is not None:
+                return self.returncode
+
+            if timeout is not None:
+                started = _time()
+                endtime = started + timeout
+            else:
+                endtime = None
+
+            self._wait_kind = WaitKind.BLOCKING
+            try:
+                self._wait_blocking(timeout)
+            except ChildProcessError:
+                # we'll get this if someone else waited. some of the tests do this for example.
+                # Our own waits shouldn't cause do this, as they're protected by
+                # lock. But if someone waited outside of us, this can happen.
+                # if so, we'll fall back on the busy wait, which can handle this
+
+                # FIXME: given that this _shouldn't_ happen as a result of our own waiting,
+                # maybe we should just give up now instead of wasting time in the below.
+                # _try_wait just gives up in this case
+                pass
+            except OSError:
+                pass
+            except process_handle.WaitFailed:
+                # the new fandangled wait failed, fall back to a busy wait
+                pass
+
+            # we'll check the return under the lock, so if a thread is doing a wait
+            # it can finish first.
+            with self._waitpid_lock:
+                if self.returncode is not None:
+                    return self.returncode
+
+            self._wait_kind = WaitKind.BUSY
+            self._wait_busy_loop(timeout, endtime)
+
+            assert self.returncode is not None
             return self.returncode
 
 
@@ -2372,14 +2384,29 @@ class Popen:
             # using Popen methods: returncode is still None is this case.
             # Calling Popen.poll() will set returncode to a default value,
             # since waitpid() fails with ProcessLookupError.
+            #
+
             self.poll()
             if self.returncode is not None:
                 # Skip signalling a process that we know has already died.
                 return
 
+            # if we have a process_handle, use it to signal the process.
+            # this can avoid race conditions of signalling via pid
+
             # The race condition can still happen if the race condition
             # described above happens between the returncode test
             # and the kill() call.
+
+            h = self.process_handle
+            if not h.is_closed:
+                try:
+                    h.send_signal(sig)
+                except ProcessLookupError:
+                    # Suppress the race condition error; bpo-40550.
+                    pass
+                return
+
             try:
                 os.kill(self.pid, sig)
             except ProcessLookupError:

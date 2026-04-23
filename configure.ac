@@ -3057,16 +3057,16 @@ AC_DEFINE([STDC_HEADERS], [1],
 # checks for header files
 AC_CHECK_HEADERS([ \
   alloca.h asm/types.h bluetooth.h conio.h direct.h dlfcn.h endian.h errno.h fcntl.h grp.h \
-  io.h langinfo.h libintl.h libutil.h linux/auxvec.h sys/auxv.h linux/fs.h linux/limits.h linux/memfd.h \
-  linux/netfilter_ipv4.h linux/random.h linux/soundcard.h linux/sched.h \
-  linux/tipc.h linux/wait.h netdb.h net/ethernet.h netinet/in.h netpacket/packet.h poll.h process.h pthread.h pty.h \
-  sched.h setjmp.h shadow.h signal.h spawn.h sys/audioio.h sys/bsdtty.h sys/devpoll.h \
+  io.h langinfo.h libintl.h libproc.h libutil.h linux/auxvec.h sys/auxv.h linux/fs.h linux/limits.h linux/magic.h \
+  linux/memfd.h linux/netfilter_ipv4.h linux/random.h linux/soundcard.h linux/sched.h \
+  linux/tipc.h linux/wait.h netdb.h net/ethernet.h netinet/in.h netpacket/packet.h poll.h process.h \
+  pthread.h pty.h sched.h setjmp.h shadow.h signal.h spawn.h sys/audioio.h sys/bsdtty.h sys/devpoll.h \
   sys/endian.h sys/epoll.h sys/event.h sys/eventfd.h sys/file.h sys/ioctl.h sys/kern_control.h \
-  sys/loadavg.h sys/lock.h sys/memfd.h sys/mkdev.h sys/mman.h sys/modem.h sys/param.h sys/pidfd.h sys/poll.h \
-  sys/random.h sys/resource.h sys/select.h sys/sendfile.h sys/socket.h sys/soundcard.h sys/stat.h \
-  sys/statvfs.h sys/sys_domain.h sys/syscall.h sys/sysmacros.h sys/termio.h sys/time.h sys/times.h sys/timerfd.h \
-  sys/types.h sys/uio.h sys/un.h sys/utsname.h sys/wait.h sys/xattr.h sysexits.h syslog.h \
-  termios.h util.h utime.h utmp.h \
+  sys/loadavg.h sys/lock.h sys/memfd.h sys/mkdev.h sys/mman.h sys/modem.h sys/param.h sys/procdesc.h sys/pidfd.h \
+  sys/poll.h sys/proc.h sys/random.h sys/resource.h sys/select.h sys/sendfile.h sys/socket.h sys/soundcard.h sys/stat.h \
+  sys/statvfs.h sys/statvfs.h sys/sys_domain.h sys/syscall.h sys/sysctl.h sys/sysmacros.h sys/termio.h sys/time.h \
+  sys/times.h sys/timerfd.h sys/types.h sys/uio.h sys/un.h sys/user.h sys/utsname.h sys/vfs.h sys/wait.h sys/xattr.h \
+  sysexits.h syslog.h termios.h util.h utime.h utmp.h \
 ])
 AC_HEADER_DIRENT
 AC_HEADER_MAJOR
@@ -5371,12 +5371,13 @@ AC_CHECK_FUNCS([ \
   getgrnam_r getgrouplist gethostname getitimer getloadavg getlogin getlogin_r \
   getpeername getpgid getpid getppid getpriority _getpty \
   getpwent getpwnam_r getpwuid getpwuid_r getresgid getresuid getrusage getsid getspent \
-  getspnam getuid getwd grantpt if_nameindex initgroups kill killpg lchown linkat \
-  lockf lstat lutimes madvise mbrtowc memrchr mkdirat mkfifo mkfifoat \
-  mknod mknodat mktime mmap mremap nice openat opendir pathconf pause pipe \
-  pipe2 plock poll ppoll posix_fadvise posix_fallocate posix_openpt posix_spawn posix_spawnp \
-  posix_spawn_file_actions_addclosefrom_np \
-  pread preadv preadv2 process_vm_readv \
+  getspnam getuid getwd grantpt if_nameindex initgroups kill killpg kinfo_getproc \
+  lchown linkat lockf lstat lutimes madvise mbrtowc memrchr mkdirat mkfifo mkfifoat \
+  mknod mknodat mktime mmap mremap nice openat opendir pathconf pause \
+  pdfork pdkill pdgetpid pidfd_getpid pidfd_getfd pidfd_open pidfd_spawn pidfd_spawnp \
+  pipe pipe2 plock poll ppoll posix_fadvise posix_fallocate posix_openpt \
+  posix_spawn posix_spawnp posix_spawn_file_actions_addclosefrom_np \
+  pread preadv preadv2 process_vm_readv proc_pidinfo \
   pthread_cond_timedwait_relative_np pthread_condattr_setclock pthread_init \
   pthread_kill pthread_get_name_np pthread_getname_np pthread_set_name_np \
   pthread_setname_np pthread_getattr_np \
@@ -5388,7 +5389,7 @@ AC_CHECK_FUNCS([ \
   setresuid setreuid setsid setuid setvbuf shutdown sigaction sigaltstack \
   sigfillset siginterrupt sigpending sigrelse sigtimedwait sigwait \
   sigwaitinfo snprintf splice strftime strlcpy strsignal symlinkat sync \
-  sysconf tcgetpgrp tcsetpgrp tempnam timegm times tmpfile \
+  sysconf sysctl tcgetpgrp tcsetpgrp tempnam timegm times tmpfile \
   tmpnam tmpnam_r truncate ttyname_r umask uname unlinkat unlockpt utimensat utimes vfork \
   wait wait3 wait4 waitid waitpid wcscoll wcsftime wcsxfrm wmemcmp writev \
 ])
@@ -5420,6 +5421,14 @@ AC_CHECK_DECL([dirfd],
               [],
               [@%:@include <sys/types.h>
                @%:@include <dirent.h>])
+
+AC_CHECK_DECL([kinfo_getproc],
+              [AC_DEFINE([HAVE_KINFO_GETPROC], [1],
+                         [Define if you have the 'kinfo_getproc' function or macro.])],
+              [],
+              [@%:@include <sys/types.h>
+               @%:@include <sys/user.h>
+               @%:@include <libutil.h>])
 
 # For some functions, having a definition is not sufficient, since
 # we want to take their address.
@@ -7896,10 +7905,10 @@ AC_DEFUN([PY_STDLIB_MOD_SET_NA], [
 # stdlib not available
 dnl Modules that are not available on some platforms
 AS_CASE([$ac_sys_system],
-  [AIX], [PY_STDLIB_MOD_SET_NA([_scproxy])],
-  [VxWorks*], [PY_STDLIB_MOD_SET_NA([_scproxy], [termios], [grp])],
+  [AIX], [PY_STDLIB_MOD_SET_NA([_scproxy], [pidfd], [_proc_info])],
+  [VxWorks*], [PY_STDLIB_MOD_SET_NA([_scproxy], [pidfd], [_proc_info], [termios], [grp])],
   dnl The _scproxy module is available on macOS
-  [Darwin], [],
+  [Darwin], [PY_STDLIB_MOD_SET_NA([pidfd])],
   [iOS], [
     dnl subprocess and multiprocessing are not supported (no fork syscall).
     dnl curses and tkinter user interface are not available.
@@ -7912,19 +7921,22 @@ AS_CASE([$ac_sys_system],
       [_multiprocessing],
       [_posixshmem],
       [_posixsubprocess],
+      [_procinfo],
       [_scproxy],
       [_tkinter],
       [grp],
       [nis],
+      [pidfd],
       [readline],
       [pwd],
       [spwd],
       [syslog],
     )
   ],
-  [CYGWIN*], [PY_STDLIB_MOD_SET_NA([_scproxy])],
-  [QNX*], [PY_STDLIB_MOD_SET_NA([_scproxy])],
-  [FreeBSD*], [PY_STDLIB_MOD_SET_NA([_scproxy])],
+  [CYGWIN*], [PY_STDLIB_MOD_SET_NA([_scproxy],[pidfd],[_profinfo])],
+  [QNX*], [PY_STDLIB_MOD_SET_NA([_scproxy],[pidfd],[_profinfo])],
+  [FreeBSD*], [PY_STDLIB_MOD_SET_NA([_scproxy],[pidfd],[_profinfo])],
+  [Linux], [PY_STDLIB_MOD_SET_NA([_procinfo])],
   [Emscripten], [
     dnl subprocess and multiprocessing are not supported (no fork syscall).
     dnl curses and tkinter user interface are not available.
@@ -7938,12 +7950,14 @@ AS_CASE([$ac_sys_system],
       [_multiprocessing],
       [_posixshmem],
       [_posixsubprocess],
+      [_procinfo],
       [_scproxy],
       [_tkinter],
       [_interpreters],
       [_interpchannels],
       [_interpqueues],
       [grp],
+      [pidfd],
       [pwd],
       [resource],
       [syslog],
@@ -7966,12 +7980,14 @@ AS_CASE([$ac_sys_system],
       [_multiprocessing],
       [_posixshmem],
       [_posixsubprocess],
+      [_procinfo],
       [_scproxy],
       [_tkinter],
       [_interpreters],
       [_interpchannels],
       [_interpqueues],
       [grp],
+      [pidfd],
       [pwd],
       [resource],
       [syslog],
@@ -7981,11 +7997,13 @@ AS_CASE([$ac_sys_system],
     dnl (see Modules/Setup.stdlib.in).
     PY_STDLIB_MOD_SET_NA(
       [_ctypes_test],
+      [_procinfo],
       [_remote_debugging],
       [_testimportmultiple],
       [_testmultiphase],
       [_testsinglephase],
       [fcntl],
+      [pidfd],
       [mmap],
       [termios],
       [xxlimited],
@@ -8117,6 +8135,11 @@ dnl platform specific extensions
 PY_STDLIB_MOD([grp], [],
   [test "$ac_cv_func_getgrent" = "yes" &&
    { test "$ac_cv_func_getgrgid" = "yes" || test "$ac_cv_func_getgrgid_r" = "yes"; }])
+PY_STDLIB_MOD([pidfd],
+  [], [test "$ac_cv_header_unistd_h" = "yes" -a "$ac_cv_header_sys_pidfd_h" = "yes"])
+PY_STDLIB_MOD([_procinfo],
+  [], [test "$ac_cv_header_libproc_h" = "yes" -a "$ac_cv_header_libproc_h" = "yes" ||
+       test "$ac_cv_header_libutil_h" = "yes" -a "$ac_cv_header_libutil_h" = "yes"])
 PY_STDLIB_MOD([pwd], [], [test "$ac_cv_func_getpwuid" = yes -o "$ac_cv_func_getpwuid_r" = yes])
 PY_STDLIB_MOD([resource], [], [test "$ac_cv_header_sys_resource_h" = yes])
 PY_STDLIB_MOD([_scproxy],
@@ -8124,6 +8147,7 @@ PY_STDLIB_MOD([_scproxy],
   [], [-framework SystemConfiguration -framework CoreFoundation])
 PY_STDLIB_MOD([syslog], [], [test "$ac_cv_header_syslog_h" = yes])
 PY_STDLIB_MOD([termios], [], [test "$ac_cv_header_termios_h" = yes])
+
 
 dnl _elementtree loads libexpat via CAPI hook in pyexpat
 PY_STDLIB_MOD([pyexpat],

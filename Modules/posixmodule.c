@@ -32,6 +32,7 @@
 
 #ifndef MS_WINDOWS
 #  include "posixmodule.h"        // _PyLong_FromUid()
+#  include "_do_fork.h"
 #else
 #  include "pycore_fileutils_windows.h" // _Py_GetFileInformationByName()
 #  include "osdefs.h"             // SEP
@@ -60,7 +61,7 @@
 #endif
 
 #ifdef HAVE_SYS_PIDFD_H
-#  include <sys/pidfd.h>          // PIDFD_NONBLOCK
+#  include <sys/pidfd.h>
 #endif
 
 #ifdef __EMSCRIPTEN__
@@ -157,7 +158,7 @@
 #endif
 
 #ifdef HAVE_POSIX_SPAWN
-#  include <spawn.h>              // posix_spawn()
+#  include <spawn.h>              // posix_spawn() / pidfd_spawn()
 #endif
 
 #ifdef HAVE_UTIME_H
@@ -206,6 +207,9 @@
 #  include <sanitizer/msan_interface.h> // __msan_unpoison()
 #endif
 
+#ifdef HAVE_SYS_PROCDESC_H
+#include <sys/procdesc.h>         // pdgetpid()
+#endif
 
 // --- More complex system includes -----------------------------------------
 
@@ -7886,13 +7890,26 @@ fail:
 }
 
 
+enum posix_spawn_function{
+    POSIX_SPAWN_FUNCTION_POSIX_SPAWN,
+#ifdef HAVE_POSIX_SPAWNP
+    POSIX_SPAWN_FUNCTION_POSIX_SPAWNP,
+#endif
+#ifdef HAVE_PIDFD_SPAWN
+    POSIX_SPAWN_FUNCTION_PIDFD_SPAWN,
+#endif
+#ifdef HAVE_PIDFD_SPAWNP
+    POSIX_SPAWN_FUNCTION_PIDFD_SPAWNP,
+#endif
+};
+
 static PyObject *
-py_posix_spawn(int use_posix_spawnp, PyObject *module, path_t *path, PyObject *argv,
-               PyObject *env, PyObject *file_actions,
+py_posix_spawn(enum posix_spawn_function function, PyObject *module, path_t *path,
+               PyObject *argv, PyObject *env, PyObject *file_actions,
                PyObject *setpgroup, int resetids, int setsid, PyObject *setsigmask,
                PyObject *setsigdef, PyObject *scheduler)
 {
-    const char *func_name = use_posix_spawnp ? "posix_spawnp" : "posix_spawn";
+    const char *func_name = NULL;
     EXECV_CHAR **argvlist = NULL;
     EXECV_CHAR **envlist = NULL;
     posix_spawn_file_actions_t file_actions_buf;
@@ -7904,6 +7921,19 @@ py_posix_spawn(int use_posix_spawnp, PyObject *module, path_t *path, PyObject *a
     PyObject *temp_buffer = NULL;
     pid_t pid;
     int err_code;
+
+    switch(function) {
+        case POSIX_SPAWN_FUNCTION_POSIX_SPAWN: func_name = "posix_spawn"; break;
+#ifdef HAVE_POSIX_SPAWNP
+        case POSIX_SPAWN_FUNCTION_POSIX_SPAWNP: func_name = "posix_spawnp"; break;
+#endif
+#ifdef HAVE_PIDFD_SPAWN
+        case POSIX_SPAWN_FUNCTION_PIDFD_SPAWN: func_name = "pidfd_spawn"; break;
+#endif
+#ifdef HAVE_PIDFD_SPAWNP
+        case POSIX_SPAWN_FUNCTION_PIDFD_SPAWNP: func_name = "pidfd_spawnp"; break;
+#endif
+    };
 
     /* posix_spawn and posix_spawnp have three arguments: (path, argv, env), where
        argv is a list or tuple of strings and env is a dictionary
@@ -7990,17 +8020,30 @@ py_posix_spawn(int use_posix_spawnp, PyObject *module, path_t *path, PyObject *a
     }
 
     _Py_BEGIN_SUPPRESS_IPH
-#ifdef HAVE_POSIX_SPAWNP
-    if (use_posix_spawnp) {
-        err_code = posix_spawnp(&pid, path->narrow,
-                                file_actionsp, attrp, argvlist, envlist);
-    }
-    else
-#endif /* HAVE_POSIX_SPAWNP */
-    {
-        err_code = posix_spawn(&pid, path->narrow,
+    switch(function) {
+        case POSIX_SPAWN_FUNCTION_POSIX_SPAWN:
+            err_code = posix_spawn(&pid, path->narrow,
                                file_actionsp, attrp, argvlist, envlist);
-    }
+            break;
+#ifdef HAVE_POSIX_SPAWNP
+        case POSIX_SPAWN_FUNCTION_POSIX_SPAWNP:
+            err_code = posix_spawnp(&pid, path->narrow,
+                                file_actionsp, attrp, argvlist, envlist);
+            break;
+#endif
+#ifdef HAVE_PIDFD_SPAWN
+        case POSIX_SPAWN_FUNCTION_PIDFD_SPAWN:
+            err_code = pidfd_spawn(&pid, path->narrow,
+                                file_actionsp, attrp, argvlist, envlist);
+            break;
+#endif
+#ifdef HAVE_PIDFD_SPAWNP
+        case POSIX_SPAWN_FUNCTION_PIDFD_SPAWNP:
+            err_code = pidfd_spawnp(&pid, path->narrow,
+                                file_actionsp, attrp, argvlist, envlist);
+            break;
+#endif
+    };
     _Py_END_SUPPRESS_IPH
 
     if (err_code) {
@@ -8068,12 +8111,11 @@ os_posix_spawn_impl(PyObject *module, path_t *path, PyObject *argv,
                     PyObject *scheduler)
 /*[clinic end generated code: output=14a1098c566bc675 input=69e7c9ebbdcf94a5]*/
 {
-    return py_posix_spawn(0, module, path, argv, env, file_actions,
-                          setpgroup, resetids, setsid, setsigmask, setsigdef,
-                          scheduler);
+    return py_posix_spawn(POSIX_SPAWN_FUNCTION_POSIX_SPAWN, module, path, argv,
+                          env, file_actions, setpgroup, resetids, setsid,
+                          setsigmask, setsigdef, scheduler);
 }
- #endif /* HAVE_POSIX_SPAWN */
-
+#endif /* HAVE_POSIX_SPAWN */
 
 
 #ifdef HAVE_POSIX_SPAWNP
@@ -8114,11 +8156,105 @@ os_posix_spawnp_impl(PyObject *module, path_t *path, PyObject *argv,
                      PyObject *scheduler)
 /*[clinic end generated code: output=7b9aaefe3031238d input=a5c057527c6881a5]*/
 {
-    return py_posix_spawn(1, module, path, argv, env, file_actions,
-                          setpgroup, resetids, setsid, setsigmask, setsigdef,
-                          scheduler);
+    return py_posix_spawn(POSIX_SPAWN_FUNCTION_POSIX_SPAWNP, module, path, argv,
+                          env, file_actions, setpgroup, resetids, setsid,
+                          setsigmask, setsigdef, scheduler);
 }
 #endif /* HAVE_POSIX_SPAWNP */
+
+
+#ifdef HAVE_PIDFD_SPAWN
+/*[clinic input]
+
+os.pidfd_spawn
+    path: path_t
+        Path of executable file.
+    argv: object
+        Tuple or list of strings.
+    env: object
+        Dictionary of strings mapping to strings.
+    /
+    *
+    file_actions: object(c_default='NULL') = ()
+        A sequence of file action tuples.
+    setpgroup: object(c_default='NULL') = None
+        The pgroup to use with the POSIX_SPAWN_SETPGROUP flag.
+    resetids: bool = False
+        If the value is `True` the POSIX_SPAWN_RESETIDS will be activated.
+    setsid: bool = False
+        If the value is `True` the POSIX_SPAWN_SETSID or POSIX_SPAWN_SETSID_NP will be activated.
+    setsigmask: object(c_default='NULL') = ()
+        The sigmask to use with the POSIX_SPAWN_SETSIGMASK flag.
+    setsigdef: object(c_default='NULL') = ()
+        The sigmask to use with the POSIX_SPAWN_SETSIGDEF flag.
+    scheduler: object(c_default='NULL') = None
+        A tuple with the scheduler policy (optional) and parameters.
+
+Execute the program specified by path in a new process, return a pidfd.
+
+[clinic start generated code]*/
+
+static PyObject *
+os_pidfd_spawn_impl(PyObject *module, path_t *path, PyObject *argv,
+                    PyObject *env, PyObject *file_actions,
+                    PyObject *setpgroup, int resetids, int setsid,
+                    PyObject *setsigmask, PyObject *setsigdef,
+                    PyObject *scheduler)
+/*[clinic end generated code: output=afcbd34eecd83e8c input=6fe1198ce977da4d]*/
+{
+    return py_posix_spawn(POSIX_SPAWN_FUNCTION_PIDFD_SPAWN, module, path, argv,
+                          env, file_actions, setpgroup, resetids, setsid,
+                          setsigmask, setsigdef, scheduler);
+}
+
+#endif /* HAVE_PIDFD_SPAWN */
+
+#ifdef HAVE_PIDFD_SPAWNP
+
+/*[clinic input]
+
+os.pidfd_spawnp
+    path: path_t
+        Path of executable file.
+    argv: object
+        Tuple or list of strings.
+    env: object
+        Dictionary of strings mapping to strings.
+    /
+    *
+    file_actions: object(c_default='NULL') = ()
+        A sequence of file action tuples.
+    setpgroup: object(c_default='NULL') = None
+        The pgroup to use with the POSIX_SPAWN_SETPGROUP flag.
+    resetids: bool = False
+        If the value is `True` the POSIX_SPAWN_RESETIDS will be activated.
+    setsid: bool = False
+        If the value is `True` the POSIX_SPAWN_SETSID or POSIX_SPAWN_SETSID_NP will be activated.
+    setsigmask: object(c_default='NULL') = ()
+        The sigmask to use with the POSIX_SPAWN_SETSIGMASK flag.
+    setsigdef: object(c_default='NULL') = ()
+        The sigmask to use with the POSIX_SPAWN_SETSIGDEF flag.
+    scheduler: object(c_default='NULL') = None
+        A tuple with the scheduler policy (optional) and parameters.
+
+Execute the program specified by path in a new process, return a pidfd.
+
+[clinic start generated code]*/
+
+static PyObject *
+os_pidfd_spawnp_impl(PyObject *module, path_t *path, PyObject *argv,
+                     PyObject *env, PyObject *file_actions,
+                     PyObject *setpgroup, int resetids, int setsid,
+                     PyObject *setsigmask, PyObject *setsigdef,
+                     PyObject *scheduler)
+/*[clinic end generated code: output=335598a90fa780dc input=6bd4ced9693c345c]*/
+{
+    return py_posix_spawn(POSIX_SPAWN_FUNCTION_PIDFD_SPAWNP, module, path, argv,
+                          env, file_actions, setpgroup, resetids, setsid,
+                          setsigmask, setsigdef, scheduler);
+}
+
+#endif /* HAVE_PIDFD_SPAWN */
 
 #ifdef HAVE_RTPSPAWN
 static intptr_t
@@ -8615,6 +8751,52 @@ os_fork1_impl(PyObject *module)
 
 
 #ifdef HAVE_FORK
+
+static int
+_prefork(const char* audit_event)
+{
+    PyInterpreterState *interp = _PyInterpreterState_GET();
+    if (_PyInterpreterState_GetFinalizing(interp) != NULL) {
+        PyErr_SetString(PyExc_PythonFinalizationError,
+                        "can't fork at interpreter shutdown");
+        return -1;
+    }
+    if (!_PyInterpreterState_HasFeature(interp, Py_RTFLAGS_FORK)) {
+        PyErr_SetString(PyExc_RuntimeError,
+                        "fork not supported for isolated subinterpreters");
+        return -1;
+    }
+    if (PySys_Audit(audit_event, NULL) < 0) {
+        return -1;
+    }
+
+    PyOS_BeforeFork();
+
+    return 0;
+}
+
+static PyObject *
+_postfork(pid_t pid, const char* name)
+{
+    int saved_errno = errno;
+    if (pid == 0) {
+        /* child: this clobbers and resets the import lock. */
+        PyOS_AfterFork_Child();
+    } else {
+        // Called before AfterFork_Parent in case those hooks start threads.
+        Py_ssize_t num_os_threads = get_number_of_os_threads();
+        /* parent: release the import lock. */
+        PyOS_AfterFork_Parent();
+        // After PyOS_AfterFork_Parent() starts the world to avoid deadlock.
+        if (warn_about_fork_with_threads(name, num_os_threads) < 0)
+            return NULL;
+    }
+    if (pid == -1) {
+        errno = saved_errno;
+        return posix_error();
+    }
+    return PyLong_FromPid(pid);
+}
 /*[clinic input]
 os.fork
 
@@ -8627,44 +8809,57 @@ static PyObject *
 os_fork_impl(PyObject *module)
 /*[clinic end generated code: output=3626c81f98985d49 input=13c956413110eeaa]*/
 {
-    pid_t pid;
-    PyInterpreterState *interp = _PyInterpreterState_GET();
-    if (_PyInterpreterState_GetFinalizing(interp) != NULL) {
-        PyErr_SetString(PyExc_PythonFinalizationError,
-                        "can't fork at interpreter shutdown");
+    if (_prefork("os.fork") < 0) {
         return NULL;
     }
-    if (!_PyInterpreterState_HasFeature(interp, Py_RTFLAGS_FORK)) {
-        PyErr_SetString(PyExc_RuntimeError,
-                        "fork not supported for isolated subinterpreters");
-        return NULL;
-    }
-    if (PySys_Audit("os.fork", NULL) < 0) {
-        return NULL;
-    }
-    PyOS_BeforeFork();
-    pid = fork();
-    int saved_errno = errno;
-    if (pid == 0) {
-        /* child: this clobbers and resets the import lock. */
-        PyOS_AfterFork_Child();
-    } else {
-        // Called before AfterFork_Parent in case those hooks start threads.
-        Py_ssize_t num_os_threads = get_number_of_os_threads();
-        /* parent: release the import lock. */
-        PyOS_AfterFork_Parent();
-        // After PyOS_AfterFork_Parent() starts the world to avoid deadlock.
-        if (warn_about_fork_with_threads("fork", num_os_threads) < 0)
-            return NULL;
-    }
-    if (pid == -1) {
-        errno = saved_errno;
-        return posix_error();
-    }
-    return PyLong_FromPid(pid);
-}
-#endif /* HAVE_FORK */
 
+    pid_t pid = fork();
+
+    return _postfork(pid, "fork");
+}
+
+/*[clinic input]
+os.fork_flags
+    flags: int = 0
+        A bitfield of FORK_FLAGS_* values
+
+Fork a child process, and optionally generate a process file descriptor.
+
+Returns:
+    Always returns a tuple of two integers.
+    parent: PID of child process, and process fd if requested (or -1 if
+    that failed).
+    child : (0, -1)
+[clinic start generated code]*/
+
+static PyObject *
+os_fork_flags_impl(PyObject *module, int flags)
+/*[clinic end generated code: output=cea1c67c443a5166 input=54ece30ce425141c]*/
+{
+    if (_prefork("os.fork_flags") < 0) {
+        return NULL;
+    }
+
+    int process_fd = -1;
+
+    pid_t pid = _do_fork(&process_fd, flags);
+
+    PyObject *ret = _postfork(pid, "fork_flags");
+
+    if (PyErr_Occurred() || ret == NULL) {
+        /* _postfork() should already have called posix_error() if apt,
+         * so shouldn't need to worry about clobbering errno */
+        if (process_fd != -1) {
+            close(process_fd);
+        }
+        Py_XDECREF(ret);
+        return NULL;
+    }
+
+    return Py_BuildValue("Ni", ret, process_fd);
+}
+
+#endif /* HAVE_FORK */
 
 #ifdef HAVE_SCHED_H
 #ifdef HAVE_SCHED_GET_PRIORITY_MAX
@@ -10768,6 +10963,28 @@ os_pidfd_open_impl(PyObject *module, pid_t pid, unsigned int flags)
 }
 #endif
 
+
+#if defined(__FreeBSD__) && defined(HAVE_PDGETPID)
+/*[clinic input]
+os.pdgetpid
+  fd: int
+
+Get the pid for the given process descriptor.
+
+[clinic start generated code]*/
+
+static PyObject *
+os_pdgetpid_impl(PyObject *module, int fd)
+/*[clinic end generated code: output=c2f0282f428ca90c input=eff857f1ec79206d]*/
+{
+    pid_t pid = -1;
+    int ret = pdgetpid(fd, &pid);
+    if (ret < 0) {
+        return posix_error();
+    }
+    return PyLong_FromPid(pid);
+}
+#endif
 
 #ifdef HAVE_SETNS
 /*[clinic input]
@@ -17526,6 +17743,8 @@ static PyMethodDef posix_methods[] = {
     OS_SETPRIORITY_METHODDEF
     OS_POSIX_SPAWN_METHODDEF
     OS_POSIX_SPAWNP_METHODDEF
+    OS_PIDFD_SPAWN_METHODDEF
+    OS_PIDFD_SPAWNP_METHODDEF
     OS_READLINK_METHODDEF
     OS_COPY_FILE_RANGE_METHODDEF
     OS_SPLICE_METHODDEF
@@ -17548,6 +17767,7 @@ static PyMethodDef posix_methods[] = {
     OS_SPAWNVE_METHODDEF
     OS_FORK1_METHODDEF
     OS_FORK_METHODDEF
+    OS_FORK_FLAGS_METHODDEF
     OS_REGISTER_AT_FORK_METHODDEF
     OS_SCHED_GET_PRIORITY_MAX_METHODDEF
     OS_SCHED_GET_PRIORITY_MIN_METHODDEF
@@ -17595,7 +17815,10 @@ static PyMethodDef posix_methods[] = {
     OS_WAIT4_METHODDEF
     OS_WAITID_METHODDEF
     OS_WAITPID_METHODDEF
+
     OS_PIDFD_OPEN_METHODDEF
+    OS_PDGETPID_METHODDEF
+
     OS_GETSID_METHODDEF
     OS_SETSID_METHODDEF
     OS_SETPGID_METHODDEF
@@ -18404,6 +18627,13 @@ all_ins(PyObject *m)
     if (PyModule_AddIntConstant(m, "_LOAD_LIBRARY_SEARCH_SYSTEM32", LOAD_LIBRARY_SEARCH_SYSTEM32)) return -1;
     if (PyModule_AddIntConstant(m, "_LOAD_LIBRARY_SEARCH_USER_DIRS", LOAD_LIBRARY_SEARCH_USER_DIRS)) return -1;
     if (PyModule_AddIntConstant(m, "_LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR", LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR)) return -1;
+#endif
+
+#ifndef MS_WINDOWS
+    /* these come from our own _do_fork.h */
+    if (PyModule_AddIntMacro(m, FORK_FLAG_OPEN_PROCESS_FD) < 0) return -1;
+    if (PyModule_AddIntMacro(m, FORK_FLAG_KILL_ON_CLOSE) < 0) return -1;
+    if (PyModule_AddIntMacro(m, FORK_FLAG_AUTOREAP) < 0) return -1;
 #endif
 
     return 0;

@@ -35,6 +35,9 @@
 #ifdef HAVE_SIGNAL_H
 #  include <signal.h>             // sigaction()
 #endif
+#ifdef HAVE_SYS_PROCDESC_H
+#include <sys/procdesc.h>         // pdkill()
+#endif
 #ifdef HAVE_SYS_SYSCALL_H
 #  include <sys/syscall.h>        // __NR_pidfd_send_signal
 #endif
@@ -1334,6 +1337,29 @@ signal_pidfd_send_signal_impl(PyObject *module, int pidfd, int signalnum,
 #endif
 
 
+#if defined(__FreeBSD__) && defined(HAVE_PDKILL)
+/*[clinic input]
+signal.pdkill
+  fd: int
+  signum: int
+
+Send a signal to a process via process descriptor *fd*.
+
+[clinic start generated code]*/
+
+static PyObject *
+signal_pdkill_impl(PyObject *module, int fd, int signum)
+/*[clinic end generated code: output=e7176a7c24408b23 input=fd043138c8f21abd]*/
+{
+    int ret = pdkill(fd, signum);
+    if (ret < 0) {
+        PyErr_SetFromErrno(PyExc_OSError);
+        return NULL;
+    }
+    Py_RETURN_NONE;
+}
+#endif
+
 
 /* List of functions defined in the module -- some of the methoddefs are
    defined to nothing if the corresponding C function is not available. */
@@ -1349,6 +1375,7 @@ static PyMethodDef signal_methods[] = {
     SIGNAL_SET_WAKEUP_FD_METHODDEF
     SIGNAL_SIGINTERRUPT_METHODDEF
     SIGNAL_PAUSE_METHODDEF
+    SIGNAL_PDKILL_METHODDEF
     SIGNAL_PIDFD_SEND_SIGNAL_METHODDEF
     SIGNAL_PTHREAD_KILL_METHODDEF
     SIGNAL_PTHREAD_SIGMASK_METHODDEF

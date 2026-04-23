@@ -884,7 +884,7 @@ class _WindowsSubprocessTransport(base_subprocess.BaseSubprocessTransport):
             returncode = self._proc.poll()
             self._process_exited(returncode)
 
-        f = self._loop._proactor.wait_for_handle(int(self._proc._handle))
+        f = self._loop._proactor.wait_for_handle(int(self._proc.process_handle.handle))
         f.add_done_callback(callback)
 
 

@@ -189,6 +189,8 @@ PYTHONPATH=$(COREPYTHONPATH)
 #_posixshmem -I$(srcdir)/Modules/_multiprocessing _multiprocessing/posixshmem.c -lrt
 #fcntl fcntlmodule.c
 #grp grpmodule.c
+#pidfd pidfd.c
+#_procinfo _procinfo.c
 #resource resource.c
 #syslog syslogmodule.c
 #termios termios.c

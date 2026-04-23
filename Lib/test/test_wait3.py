@@ -35,7 +35,7 @@ class Wait3Test(ForkWait):
         # its exit status does not return uninitialized memory in the rusage
         # structure. See bpo-36279.
         args = [sys.executable, '-c', 'import sys; sys.stdin.read()']
-        proc = subprocess.Popen(args, stdin=subprocess.PIPE)
+        proc = subprocess.Popen(args, stdin=subprocess.PIPE, use_pid_handle=True)
         try:
             pid, status, rusage = os.wait3(os.WNOHANG)
             self.assertEqual(0, pid)

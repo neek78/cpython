@@ -90,13 +90,13 @@ class EINTRBaseTest(unittest.TestCase):
 class OSEINTRTest(EINTRBaseTest):
     """ EINTR tests for the os module. """
 
-    def new_sleep_process(self):
+    def new_sleep_process(self, **kw):
         code = f'import time; time.sleep({self.sleep_time!r})'
-        return self.subprocess(code)
+        return self.subprocess(code, **kw)
 
-    def _test_wait_multiple(self, wait_func):
+    def _test_wait_multiple(self, wait_func, use_pid_handle=False):
         num = 3
-        processes = [self.new_sleep_process() for _ in range(num)]
+        processes = [self.new_sleep_process(use_pid_handle=True) for _ in range(num)]
         for _ in range(num):
             wait_func()
         # Call the Popen method to avoid a ResourceWarning
@@ -108,7 +108,9 @@ class OSEINTRTest(EINTRBaseTest):
 
     @unittest.skipUnless(hasattr(os, 'wait3'), 'requires wait3()')
     def test_wait3(self):
-        self._test_wait_multiple(lambda: os.wait3(0))
+        # wait3() seems do dislike processes created with pdfork() -
+        # use a pid based handle (fork()) instead
+        self._test_wait_multiple(lambda: os.wait3(0), use_pid_handle=True)
 
     def _test_wait_single(self, wait_func):
         proc = self.new_sleep_process()
