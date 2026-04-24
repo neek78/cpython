@@ -48,7 +48,7 @@ Points of Interest
 Current Status
 --------------
 
-This is just a proof of concept, and there is a lot of work to be done if it's to go forward. It's hardly thorougly tested (ie it needs many more test cases written), as well as tested on more OS versions - in particular older Linux / glibc versions where some of the latest facilities are not available.
+This is just a proof of concept, and there is a lot of work to be done if it's to go forward. It's hardly thoroughly tested (ie it needs many more test cases written), as well as tested on more OS versions - in particular older Linux / glibc versions where some of the latest facilities are not available.
 
 Linux pidfd status
 ==================
@@ -85,7 +85,7 @@ These mechanisms can wait on a pidfd and report it completing and being reaped a
 
 ioctl PIDFD_GET_INFO
 --------------------
-iocctl PIDFD_GET_INFO apparently was added to the kernel in v6.13, provides all manner of useful info about the pidfd. There seems to be at least 3 versions of the accomanying struct in the wild. Which values are returned are controlled by a flags arg. Available in new pidfd module.
+iocctl PIDFD_GET_INFO apparently was added to the kernel in v6.13, provides all manner of useful info about the pidfd. There seems to be at least 3 versions of the accompanying struct in the wild. Which values are returned are controlled by a flags arg. Available in new pidfd module.
 
 Importantly, allows the retrieval of the process exit status without using wait() - or even if the process has been reaped.
 
