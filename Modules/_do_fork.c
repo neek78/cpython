@@ -158,7 +158,7 @@ pid_t _do_fork(int* process_fd, unsigned int flags)
     }
 #elif defined(HAVE_PDFORK)
     if (flags & FORK_FLAG_OPEN_PROCESS_FD) {
-        return do_pdfork(process_fd, flags);
+        return _do_pdfork(process_fd, flags);
     }
 #endif
 
