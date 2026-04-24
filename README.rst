@@ -30,11 +30,20 @@ Things that are partially or fully implemented:
 * Have an as consistent as possible interface across operating systems (including Windows).
 
 Other Objectives:
-----------------
+-----------------
 
 * Support kill-on-close functionality if the underlying OS supports it. FreeBSD offers this with pdfork(), linux support also very recently available. On Linux, this would probably require a fork()-style wrapper for clone3() in glibc, and/or changes to pidfd_spawn().
 * Integrate with modules such as asyncio and multiprocessing as appropriate.
 * Complete unique_id work, and make sure this works well with things like pickling
+
+Points of Interest
+------------------
+
+* New module Lib/process_handle.py
+* subprocess adapted to make use of process_handle. subprocess.Popen objects now have a process_handle property
+* New module pidfd exposes extra pidfd interfaces
+* Various new interfaces added to os (pidfd_spawn(), fork_flags(), pdgetpid() etc)
+* A few new interfaces exposed via _winapi
 
 Current Status
 --------------
@@ -97,11 +106,11 @@ clone3() now allows creation of a pidfd atomically with the creation of the new 
 
 You can call clone3 directly (via syscall()), and it works, but it seems like a monumentally bad idea to bypass much of the stuff in glibc.
 
-The current implementation in this branch of Python uses traditional fork(), then immediately calls pidfd_open(). This is race-free if certain conditions hold, see pidfd_open(2). It would be preferable to use a clone3() based call to create the pidfd atomically. Additionally, it will be required to make use of thinks like AUTOKILL/AUTOREAP.
+The current implementation in this branch of Python uses traditional fork(), then immediately calls pidfd_open(). This is race-free if certain conditions hold, see pidfd_open(2). It would be preferable to use a clone3() based call to create the pidfd atomically. Additionally, it will be required to make use of things like AUTOKILL/AUTOREAP.
 
 Kill on close / CLONE_PIDFD_AUTOKILL
 -------------------------------------
-There's new functionality kicking about to have the kernel kill a process when the last open pidfd closes. Merged into the mainline kernel april 13th , I guess thus for Linux 7.1. This functionality would appear to only apply to pidfds created from clone3() (and duplicates of them), not opened via pidfd_open(). https://lkml.org/lkml/2026/2/23/583
+There's new functionality kicking about to have the kernel kill a process when the last open pidfd closes. Merged into the mainline kernel April 13th, I guess thus for Linux 7.1. This functionality would appear to only apply to pidfds created from clone3() (and duplicates of them), not opened via pidfd_open(). https://lkml.org/lkml/2026/2/23/583
 
 Requires AUTOREAP -
 
