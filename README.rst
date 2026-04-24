@@ -68,7 +68,7 @@ Exists in glibc. This is not a (direct) syscall, but a library function that map
 
 waitid(), process_madvise(), setns()
 -------------------------------------
-pidfds can be used to identify a process to these functions. For example, waitid() allows you to wait directly on a pidfd using idtype == P_PIDFD. Already available via os.waitid()
+pidfds can be used to identify a process to these functions. For example, waitid() allows you to wait directly on a pidfd using idtype == P_PIDFD. Already available via os.waitid() and os.setns(). process_madvise() doesn't seem to be wrapped anywhere.
 
 poll/select/epoll
 -----------------
@@ -120,5 +120,19 @@ pidfs
 Since linux 6.9, pidfs allows queries via statfs()/stat(). Allows you, amongst other things to query that a fd is a pidfd, and get an inode number for it, which is a good unique id that should remain unique until system restart.
 
 
+FreeBSD Process Descriptors
+===========================
+
+FreeBSD offers a similar mechanism to Linux's pidfd and has done for some time now. A process descriptor (PD) is a file descriptor created a fork() time using the syscall pdfork(). As best I can tell, it's not possible to open a pd to an existing processes.
+
+pdkill() allows sending a signal via a pd, and pdgetpid() maps pds to pids.
+
+By default, a pd is kill-on-close enabled. This can be disabled with the PD_DAEMON flag.
+
+kevent() and stat() can take a pd as a parameter, and will report on process completion status.
+
+I have some idea that it's possible to create a pd with posix_spawn(), but I can't remember where I read that.
+
+At the moment there seems to not be a way to directly wait() on a pd. It does seem like thereis a pdwait() in the works. As far as I can tell (need to research this further), whilst a pd remains open, its pid is prevented from being recycled, thus avoiding pid races. Again, this needs to be confirmed.
 
 
